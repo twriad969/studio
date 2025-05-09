@@ -1,4 +1,4 @@
-import { Zap } from 'lucide-react';
+import { Sparkles } from 'lucide-react'; // Changed from Zap to Sparkles
 import Link from 'next/link';
 
 export default function AppHeader() {
@@ -7,9 +7,9 @@ export default function AppHeader() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <Zap className="h-8 w-8 text-primary group-hover:animate-pulse" />
+            <Sparkles className="h-8 w-8 text-primary group-hover:text-primary/80 transition-colors" /> {/* Updated icon and hover */}
             <h1 className="text-3xl font-bold text-foreground">
-              Prompthancer <span className="text-primary">X</span>
+              Prompthancer {/* Removed X */}
             </h1>
           </Link>
           <div className="text-right">

@@ -1,4 +1,4 @@
-import { Github, Linkedin, Twitter, Zap } from 'lucide-react';
+import { Github, Linkedin, Twitter, Sparkles } from 'lucide-react'; // Changed from Zap to Sparkles
 import Link from 'next/link';
 
 export default function AppFooter() {
@@ -10,9 +10,9 @@ export default function AppFooter() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <Link href="/" className="flex items-center gap-2 mb-4 group">
-              <Zap className="h-7 w-7 text-primary group-hover:animate-pulse" />
+              <Sparkles className="h-7 w-7 text-primary group-hover:text-primary/80 transition-colors" /> {/* Updated icon and hover */}
               <h2 className="text-2xl font-bold text-foreground">
-                Prompthancer <span className="text-primary">X</span>
+                Prompthancer {/* Removed X */}
               </h2>
             </Link>
             <p className="text-muted-foreground text-sm">
@@ -51,7 +51,7 @@ export default function AppFooter() {
         
         <div className="border-t mt-8 pt-8 text-center">
           <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} Prompthancer X. All rights reserved.
+            &copy; {currentYear} Prompthancer. All rights reserved. {/* Removed X */}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
             Built with Next.js, Tailwind CSS, and Genkit AI.

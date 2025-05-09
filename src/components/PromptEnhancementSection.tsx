@@ -7,10 +7,10 @@ import ModifyPromptModal from './ModifyPromptModal';
 import { enhancePrompt, EnhancePromptInput, EnhancePromptOutput } from '@/ai/flows/enhance-prompt';
 import { modifyResult, ModifyResultInput, ModifyResultOutput } from '@/ai/flows/modify-result';
 import { useToast } from '@/hooks/use-toast';
-import { AlertCircle, Zap } from 'lucide-react';
+import { AlertCircle, Zap, Sparkles } from 'lucide-react'; // Added Sparkles for toast consistency if needed
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AnimatePresence, motion } from 'framer-motion';
-import Image from 'next/image';
+// Removed Image from 'next/image'
 
 export default function PromptEnhancementSection() {
   const [originalPrompt, setOriginalPrompt] = useState(''); // The prompt currently being typed by user
@@ -38,7 +38,7 @@ export default function PromptEnhancementSection() {
       toast({
         title: "Prompt Enhanced!",
         description: "Your enhanced prompt is ready.",
-        action: <Zap className="text-yellow-400" />
+        action: <Sparkles className="text-yellow-400" /> // Consider using Sparkles here too for consistency
       });
     } catch (err) {
       console.error("Error enhancing prompt:", err);
@@ -72,7 +72,7 @@ export default function PromptEnhancementSection() {
       toast({
         title: "Prompt Modified!",
         description: "Your prompt has been successfully updated.",
-        action: <Zap className="text-yellow-400" />
+        action: <Sparkles className="text-yellow-400" /> // Consistent icon
       });
     } catch (err) {
       console.error("Error modifying prompt:", err);
@@ -106,15 +106,7 @@ export default function PromptEnhancementSection() {
         </p>
       </div>
       
-      <Image 
-        src="https://picsum.photos/1200/300"
-        alt="Abstract AI art"
-        width={1200}
-        height={300}
-        className="rounded-lg shadow-lg object-cover w-full h-48 md:h-64"
-        data-ai-hint="abstract technology"
-        priority
-      />
+      {/* Image component removed as per request */}
 
       <PromptForm
         prompt={originalPrompt}
