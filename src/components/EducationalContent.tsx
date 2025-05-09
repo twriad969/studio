@@ -83,7 +83,7 @@ export default function EducationalContent() {
                   <li key={itemIndex} className="flex items-start">
                     <CheckCircle className="h-5 w-5 mr-2 mt-0.5 text-accent flex-shrink-0" />
                     <span>{item}</span>
-                  ли>
+                  </li>
                 ))}
               </ul>
             </AccordionContent>
