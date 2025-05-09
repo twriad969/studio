@@ -26,10 +26,10 @@ export default function PromptForm({
   const isOverLimit = characterLimit && charCount > characterLimit;
 
   return (
-    <Card className="w-full shadow-xl overflow-hidden">
+    <Card className="w-full shadow-xl overflow-hidden border-border bg-card/70 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="text-2xl font-semibold">Enhance Your Prompt</CardTitle>
-        <CardDescription>Enter your basic AI prompt below to get an enhanced version.</CardDescription>
+        <CardTitle className="text-2xl font-semibold text-card-foreground">Enhance Your Prompt</CardTitle>
+        <CardDescription className="text-muted-foreground">Enter your basic AI prompt below to get an enhanced version.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -38,7 +38,7 @@ export default function PromptForm({
               placeholder="e.g., Write a story about a brave knight..."
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              className="min-h-[150px] text-base resize-none focus:ring-2 focus:ring-primary"
+              className="min-h-[150px] text-base resize-none focus:ring-2 focus:ring-ring bg-background/80 placeholder-muted-foreground"
               maxLength={characterLimit}
               aria-label="Original Prompt Input"
             />
@@ -49,8 +49,8 @@ export default function PromptForm({
             )}
           </div>
           <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
           >
             <Button
               type="submit"

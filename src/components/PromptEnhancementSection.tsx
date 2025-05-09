@@ -7,14 +7,15 @@ import ModifyPromptModal from './ModifyPromptModal';
 import { enhancePrompt, EnhancePromptInput, EnhancePromptOutput } from '@/ai/flows/enhance-prompt';
 import { modifyResult, ModifyResultInput, ModifyResultOutput } from '@/ai/flows/modify-result';
 import { useToast } from '@/hooks/use-toast';
-import { AlertCircle, Zap, Sparkles } from 'lucide-react'; // Added Sparkles for toast consistency if needed
+import { AlertCircle, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AnimatePresence, motion } from 'framer-motion';
-// Removed Image from 'next/image'
+import { Spotlight } from '@/components/ui/spotlight';
+import { cn } from '@/lib/utils';
 
 export default function PromptEnhancementSection() {
-  const [originalPrompt, setOriginalPrompt] = useState(''); // The prompt currently being typed by user
-  const [submittedOriginalPrompt, setSubmittedOriginalPrompt] = useState<string | null>(null); // The prompt that was submitted for enhancement
+  const [originalPrompt, setOriginalPrompt] = useState('');
+  const [submittedOriginalPrompt, setSubmittedOriginalPrompt] = useState<string | null>(null);
   const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
   const [isLoadingEnhance, setIsLoadingEnhance] = useState(false);
   const [isLoadingModify, setIsLoadingModify] = useState(false);
@@ -28,8 +29,8 @@ export default function PromptEnhancementSection() {
 
     setIsLoadingEnhance(true);
     setError(null);
-    setEnhancedPrompt(null); // Clear previous results
-    setSubmittedOriginalPrompt(originalPrompt); // Store the submitted prompt
+    setEnhancedPrompt(null);
+    setSubmittedOriginalPrompt(originalPrompt);
 
     try {
       const input: EnhancePromptInput = { originalPrompt: originalPrompt.trim() };
@@ -38,7 +39,7 @@ export default function PromptEnhancementSection() {
       toast({
         title: "Prompt Enhanced!",
         description: "Your enhanced prompt is ready.",
-        action: <Sparkles className="text-yellow-400" /> // Consider using Sparkles here too for consistency
+        action: <Sparkles className="text-accent" /> 
       });
     } catch (err) {
       console.error("Error enhancing prompt:", err);
@@ -67,12 +68,12 @@ export default function PromptEnhancementSection() {
         modificationRequest: modificationRequest.trim(),
       };
       const result: ModifyResultOutput = await modifyResult(input);
-      setEnhancedPrompt(result.modifiedPrompt); // Update with modified prompt
-      setIsModifyModalOpen(false); // Close modal on success
+      setEnhancedPrompt(result.modifiedPrompt);
+      setIsModifyModalOpen(false);
       toast({
         title: "Prompt Modified!",
         description: "Your prompt has been successfully updated.",
-        action: <Sparkles className="text-yellow-400" /> // Consistent icon
+        action: <Sparkles className="text-accent" />
       });
     } catch (err) {
       console.error("Error modifying prompt:", err);
@@ -88,7 +89,6 @@ export default function PromptEnhancementSection() {
     }
   };
   
-  // Effect to clear error when originalPrompt changes
   useEffect(() => {
     if (error) {
       setError(null);
@@ -96,24 +96,27 @@ export default function PromptEnhancementSection() {
   }, [originalPrompt]);
 
   return (
-    <section className="w-full max-w-3xl mx-auto space-y-8 py-8">
-      <div className="text-center space-y-3">
-        <h2 className="text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary">
+    <section className="w-full max-w-4xl mx-auto space-y-8 py-12 md:py-20 relative">
+      <Spotlight
+        className="-top-40 left-0 md:-top-20 md:left-30"
+      />
+      <div className="relative z-10 text-center space-y-4 mb-12">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight bg-opacity-50 bg-gradient-to-b from-foreground/80 to-foreground bg-clip-text text-transparent">
           AI Prompt Enhancement, Simplified
-        </h2>
-        <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+        </h1>
+        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
           Transform your basic AI prompts into powerful, precise instructions that get better results instantly.
         </p>
       </div>
       
-      {/* Image component removed as per request */}
-
-      <PromptForm
-        prompt={originalPrompt}
-        setPrompt={setOriginalPrompt}
-        handleSubmit={handleEnhanceSubmit}
-        isLoading={isLoadingEnhance}
-      />
+      <div className="relative z-10">
+        <PromptForm
+          prompt={originalPrompt}
+          setPrompt={setOriginalPrompt}
+          handleSubmit={handleEnhanceSubmit}
+          isLoading={isLoadingEnhance}
+        />
+      </div>
 
       <AnimatePresence>
         {error && (
@@ -121,6 +124,7 @@ export default function PromptEnhancementSection() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className="relative z-10"
           >
             <Alert variant="destructive" className="shadow-md">
               <AlertCircle className="h-4 w-4" />
@@ -133,11 +137,13 @@ export default function PromptEnhancementSection() {
 
       <AnimatePresence>
         {enhancedPrompt && submittedOriginalPrompt && (
-          <ResultsDisplay
-            originalPrompt={submittedOriginalPrompt}
-            enhancedPrompt={enhancedPrompt}
-            onModifyClick={() => setIsModifyModalOpen(true)}
-          />
+          <div className="relative z-10">
+            <ResultsDisplay
+              originalPrompt={submittedOriginalPrompt}
+              enhancedPrompt={enhancedPrompt}
+              onModifyClick={() => setIsModifyModalOpen(true)}
+            />
+          </div>
         )}
       </AnimatePresence>
 

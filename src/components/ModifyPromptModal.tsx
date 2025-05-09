@@ -43,9 +43,9 @@ export default function ModifyPromptModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[525px] bg-card shadow-2xl rounded-lg">
+      <DialogContent className="sm:max-w-[525px] bg-card shadow-2xl rounded-lg border-border">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold">Modify Enhanced Prompt</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold text-card-foreground">Modify Enhanced Prompt</DialogTitle>
           <DialogDescription className="text-muted-foreground">
             Provide specific instructions on how you'd like to change the enhanced prompt.
           </DialogDescription>
@@ -53,18 +53,18 @@ export default function ModifyPromptModal({
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Original Prompt:</h4>
-            <p className="text-xs p-2 bg-muted rounded-md max-h-20 overflow-y-auto">{originalPrompt}</p>
+            <p className="text-xs p-2 bg-muted/50 rounded-md max-h-20 overflow-y-auto text-muted-foreground border border-border/50">{originalPrompt}</p>
           </div>
           <div className="space-y-2">
             <h4 className="text-sm font-medium text-muted-foreground">Current Enhanced Prompt:</h4>
-            <p className="text-xs p-2 bg-muted rounded-md max-h-20 overflow-y-auto">{currentEnhancedPrompt}</p>
+            <p className="text-xs p-2 bg-muted/50 rounded-md max-h-20 overflow-y-auto text-muted-foreground border border-border/50">{currentEnhancedPrompt}</p>
           </div>
           <div>
             <Textarea
               placeholder="e.g., Make it more formal, add examples, shorten it..."
               value={modificationRequest}
               onChange={(e) => setModificationRequest(e.target.value)}
-              className="min-h-[100px] focus:ring-2 focus:ring-primary"
+              className="min-h-[100px] focus:ring-2 focus:ring-ring bg-background/80 placeholder-muted-foreground"
               aria-label="Modification Request Input"
             />
           </div>

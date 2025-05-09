@@ -5,7 +5,7 @@ import { CheckCircle, Lightbulb, BarChart3, BookOpen } from "lucide-react";
 const contentSections = [
   {
     id: "how-it-works",
-    title: "How Prompthancer X Works",
+    title: "How Prompthancer Works",
     icon: Lightbulb,
     items: [
       "Enter your basic prompt into the input field.",
@@ -13,7 +13,7 @@ const contentSections = [
       "We generate an enhanced version with improved structure, clarity, and specificity.",
       "Use your new, powerful prompt with any AI system for significantly better results!",
     ],
-    description: "Prompthancer X simplifies prompt engineering. We use AI to refine your ideas into instructions that AI models understand best, unlocking their full potential."
+    description: "Prompthancer simplifies prompt engineering. We use AI to refine your ideas into instructions that AI models understand best, unlocking their full potential."
   },
   {
     id: "benefits",
@@ -53,24 +53,24 @@ const contentSections = [
       "Set constraints: Include length, style, or tone requirements.",
       "Iterate: Start simple and refine your prompt based on AI responses.",
     ],
-    description: "While Prompthancer X does the heavy lifting, understanding these core principles can help you provide better initial prompts for even more outstanding enhancements."
+    description: "While Prompthancer does the heavy lifting, understanding these core principles can help you provide better initial prompts for even more outstanding enhancements."
   }
 ];
 
 export default function EducationalContent() {
   return (
-    <section className="mt-16 sm:mt-24 space-y-12 py-12 border-t">
+    <section className="mt-16 sm:mt-24 space-y-12 py-12 border-t border-border/50">
       <div className="text-center mb-12">
-        <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Unlock the Power of AI with Better Prompts</h2>
+        <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">Unlock the Power of AI with Better Prompts</h2>
         <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-          Learn how Prompthancer X helps you communicate more effectively with AI systems.
+          Learn how Prompthancer helps you communicate more effectively with AI systems.
         </p>
       </div>
 
       <Accordion type="single" collapsible className="w-full space-y-6">
         {contentSections.map((section, index) => (
-          <AccordionItem value={`item-${index}`} key={section.id} className="bg-card border-none rounded-lg shadow-lg overflow-hidden">
-            <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:bg-muted/50 transition-colors duration-200">
+          <AccordionItem value={`item-${index}`} key={section.id} className="bg-card/70 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg overflow-hidden">
+            <AccordionTrigger className="px-6 py-4 text-left text-lg font-medium hover:bg-muted/50 transition-colors duration-200 text-card-foreground">
               <div className="flex items-center">
                 <section.icon className="h-6 w-6 mr-3 text-primary" aria-hidden="true" />
                 {section.title}
@@ -91,13 +91,13 @@ export default function EducationalContent() {
         ))}
       </Accordion>
 
-      <Card className="mt-12 bg-gradient-to-br from-primary/80 via-primary to-accent/80 text-primary-foreground shadow-xl">
+      <Card className="mt-12 bg-gradient-to-br from-primary/90 via-primary to-accent/90 text-primary-foreground shadow-xl border-none">
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl text-center">Ready to Elevate Your AI Interactions?</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-center text-lg sm:text-xl">
-            Try Prompthancer X today and experience the difference a well-crafted prompt can make. It's free, fast, and no sign-up is required!
+            Try Prompthancer today and experience the difference a well-crafted prompt can make. It's free, fast, and no sign-up is required!
           </p>
         </CardContent>
       </Card>
