@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -28,21 +27,39 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
   const resultsSectionRef = useRef<HTMLDivElement>(null);
 
   const cleanPromptString = (promptStr: string | null | undefined, errorContext: string): string | null => {
-    if (typeof promptStr === 'string') {
-      if (promptStr.trim().toLowerCase() === "undefined") {
-        setError(`AI returned an unusable response for ${errorContext}. Please try rephrasing.`);
-        return null;
-      }
-      if (promptStr.endsWith(".undefined")) {
-        return promptStr.substring(0, promptStr.length - ".undefined".length);
-      }
-      return promptStr;
+    if (promptStr === null || promptStr === undefined) {
+      // Let the caller decide if null/undefined is an error.
+      // This function's job is cleaning, not validating existence if null is permissible.
+      return null;
     }
-    if (promptStr === null) return null; // Explicitly null is fine
+
+    if (typeof promptStr !== 'string') {
+      setError(`Invalid prompt format received for ${errorContext}. Expected string, got ${typeof promptStr}.`);
+      return null;
+    }
+
+    let _str = promptStr.trim();
+
+    // Scenario 1: The string itself is "undefined" (case-insensitive) after trimming
+    if (_str.toLowerCase() === "undefined") {
+      setError(`AI returned an unusable response for ${errorContext} (was 'undefined'). Please try rephrasing.`);
+      return null;
+    }
+
+    // Scenario 2: The trimmed string ends with ".undefined"
+    if (_str.endsWith(".undefined")) {
+      _str = _str.substring(0, _str.length - ".undefined".length);
+      _str = _str.trim(); // Trim again in case the original was like " text.undefined "
+    }
     
-    // Undefined or other types
-    setError(`Invalid prompt format received for ${errorContext}.`);
-    return null;
+    // Scenario 3: After cleaning, is the string empty?
+    // This implies the original string was effectively just ".undefined", "undefined", or whitespace.
+    if (_str === "") {
+      setError(`AI returned an empty or unusable response for ${errorContext} after cleaning. Please try rephrasing.`);
+      return null;
+    }
+
+    return _str;
   };
 
   const handleEnhanceSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -67,12 +84,12 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           description: "Your enhanced prompt is ready.",
           action: <SparklesIcon className="text-accent" />
         });
-      } else if (!error) { // If cleanPromptString set error, don't override
-         setError("Failed to enhance prompt or received an invalid format.");
+      } else if (!error) { 
+         setError("Failed to enhance prompt or received an invalid format from AI.");
          toast({
             variant: "destructive",
             title: "Enhancement Failed",
-            description: "Received an invalid format for the enhanced prompt.",
+            description: "Received an invalid or unusable format for the enhanced prompt.",
          });
       }
     } catch (err) {
@@ -98,7 +115,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     try {
       const input: ModifyResultInput = {
         originalPrompt: submittedOriginalPrompt,
-        enhancedPrompt, // Send the current (potentially already cleaned) enhanced prompt
+        enhancedPrompt,
         modificationRequest: modificationRequest.trim(),
       };
       const result: ModifyResultOutput = await modifyResult(input);
@@ -114,19 +131,13 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           action: <SparklesIcon className="text-accent" />
         });
       } else if (!error) {
-        // If cleanedModifiedPrompt is null and no error was set by cleanPromptString
-        // it means the original result.modifiedPrompt was not a string or was problematic
-        setError("Failed to modify prompt or received an invalid format.");
+        setError("Failed to modify prompt or received an invalid format from AI.");
         toast({
             variant: "destructive",
             title: "Modification Failed",
-            description: "Received an invalid format for the modified prompt.",
+            description: "Received an invalid or unusable format for the modified prompt.",
         });
-        // Optionally, do not close the modal or revert enhancedPrompt to its pre-modification state
-        // setIsModifyModalOpen(true); // Keep modal open
       }
-      // If cleanPromptString set an error, the modal will remain open by default,
-      // and enhancedPrompt won't be updated with a problematic value.
       
     } catch (err) {
       console.error("Error modifying prompt:", err);
@@ -219,7 +230,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
       </div>
 
 
-      {submittedOriginalPrompt && enhancedPrompt && ( /* Only show modal if there's a valid enhanced prompt to modify */
+      {submittedOriginalPrompt && enhancedPrompt && (
         <ModifyPromptModal
           isOpen={isModifyModalOpen}
           onClose={() => setIsModifyModalOpen(false)}
