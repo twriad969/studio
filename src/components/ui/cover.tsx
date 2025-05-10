@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useId, useState, useRef } from "react";
-import { AnimatePresence, motion } from "motion/react"; // Corrected import
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { SparklesCore } from "@/components/ui/sparkles";
 
@@ -20,14 +20,14 @@ export const Cover = ({
     if (ref.current) {
       setContainerWidth(ref.current?.clientWidth ?? 0);
       const height = ref.current?.clientHeight ?? 0;
-      const numberOfBeams = Math.floor(height / 10);
+      const numberOfBeams = Math.floor(height / 10); 
       const positions = Array.from(
         { length: numberOfBeams },
         (_, i) => (i + 1) * (height / (numberOfBeams + 1))
       );
       setBeamPositions(positions);
     }
-  }, []); // Removed ref.current from dependency array as it can cause issues, width/height updates should be handled by resize observers if needed.
+  }, []); 
 
   return (
     <div
@@ -36,7 +36,7 @@ export const Cover = ({
       ref={ref}
       className={cn(
         "relative group/cover inline-block px-2 py-1 transition duration-200 rounded-sm",
-        "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700", // Adjusted background for better black/white theme
+        "bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700",
          className
       )}
     >
@@ -70,9 +70,9 @@ export const Cover = ({
                 background="transparent"
                 minSize={0.4}
                 maxSize={1}
-                particleDensity={300} // Slightly reduced density
+                particleDensity={300} 
                 className="w-full h-full"
-                particleColor="#FFFFFF" // White particles, good for dark mode
+                particleColor="#FFFFFF" 
               />
               <SparklesCore
                 background="transparent"
@@ -101,9 +101,9 @@ export const Cover = ({
       <motion.span
         key={String(hovered)}
         animate={{
-          scale: hovered ? 0.95 : 1, // Subtle scale
-          x: hovered ? [0, -5, 5, -5, 5, 0] : 0, // Subtle shake
-          y: hovered ? [0, 5, -5, 5, -5, 0] : 0,  // Subtle shake
+          scale: hovered ? 0.95 : 1, 
+          x: hovered ? [0, -5, 5, -5, 5, 0] : 0, 
+          y: hovered ? [0, 5, -5, 5, -5, 0] : 0,  
         }}
         exit={{
           filter: "none",
@@ -114,7 +114,7 @@ export const Cover = ({
         transition={{
           duration: 0.2,
           x: {
-            duration: 0.4, // Slightly longer for smoother shake
+            duration: 0.4, 
             repeat: Infinity,
             repeatType: "loop",
           },
@@ -132,7 +132,7 @@ export const Cover = ({
         }}
         className={cn(
           "inline-block relative z-20 transition duration-200",
-          "text-neutral-900 dark:text-white group-hover/cover:text-neutral-800 dark:group-hover/cover:text-gray-200", // Adjusted text colors
+          "text-neutral-900 dark:text-white group-hover/cover:text-neutral-800 dark:group-hover/cover:text-gray-200", 
           className
         )}
       >
@@ -151,7 +151,7 @@ export const Beam = ({
   delay,
   duration,
   hovered,
-  width = 600, // Default width
+  width = 600, 
   ...svgProps
 }: {
   className?: string;
@@ -159,21 +159,21 @@ export const Beam = ({
   duration?: number;
   hovered?: boolean;
   width?: number;
-} & React.SVGProps<SVGSVGElement>) => { // Corrected SVGProps type
+} & React.SVGProps<SVGSVGElement>) => { 
   const id = useId();
 
   return (
     <motion.svg
-      width={width} // Use dynamic width
+      width={width} 
       height="1"
-      viewBox={`0 0 ${width} 1`} // Use dynamic width
+      viewBox={`0 0 ${width} 1`} 
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("absolute inset-x-0 w-full", className)}
       {...svgProps}
     >
       <motion.path
-        d={`M0 0.5H${width}`} // Use dynamic width
+        d={`M0 0.5H${width}`} 
         stroke={`url(#svgGradient-${id})`}
       />
       <defs>
@@ -212,7 +212,7 @@ export const Beam = ({
 
 export const CircleIcon = ({
   className,
-  delay, // delay is not used in the current animation but kept for potential future use
+  delay, 
 }: {
   className?: string;
   delay?: number;
@@ -220,7 +220,7 @@ export const CircleIcon = ({
   return (
     <div
       className={cn(
-        "pointer-events-none animate-pulse group-hover/cover:hidden h-1.5 w-1.5 rounded-full opacity-50", // Slightly smaller circles
+        "pointer-events-none animate-pulse group-hover/cover:hidden h-1.5 w-1.5 rounded-full opacity-50", 
         "bg-neutral-500 dark:bg-neutral-400 group-hover/cover:bg-primary dark:group-hover/cover:bg-primary-foreground",
         className
       )}

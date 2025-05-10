@@ -5,7 +5,7 @@ import Particles, { initParticlesEngine } from "@tsparticles/react";
 import type { Container, SingleOrMultiple } from "@tsparticles/engine";
 import { loadSlim } from "@tsparticles/slim";
 import { cn } from "@/lib/utils";
-import { motion, useAnimation } from "motion/react";
+import { motion, useAnimation } from "framer-motion";
 import { useTheme } from "next-themes"; 
 
 type ParticlesProps = {
@@ -55,7 +55,6 @@ export const SparklesCore = (props: ParticlesProps) => {
 
   const generatedId = useId();
   
-  // Only render particles in dark mode as per original component logic
   if (theme !== "dark") {
     return null;
   }
@@ -70,7 +69,7 @@ export const SparklesCore = (props: ParticlesProps) => {
           options={{
             background: {
               color: {
-                value: background || "transparent", // Ensure transparent background for overlay
+                value: background || "transparent", 
               },
             },
             fullScreen: {
@@ -232,14 +231,14 @@ export const SparklesCore = (props: ParticlesProps) => {
               number: {
                 density: {
                   enable: true,
-                  width: 400, // Adjusted for potentially smaller areas
-                  height: 400, // Adjusted for potentially smaller areas
+                  width: 400, 
+                  height: 400, 
                 },
                 limit: {
                   mode: "delete",
                   value: 0,
                 },
-                value: particleDensity || 80, // Adjusted for potentially smaller areas
+                value: particleDensity || 80, 
               },
               opacity: {
                 value: {
@@ -249,7 +248,7 @@ export const SparklesCore = (props: ParticlesProps) => {
                 animation: {
                   count: 0,
                   enable: true,
-                  speed: speed || 3, // Adjusted for subtlety
+                  speed: speed || 3, 
                   decay: 0,
                   delay: 0,
                   sync: false,
@@ -278,8 +277,8 @@ export const SparklesCore = (props: ParticlesProps) => {
               },
               size: {
                 value: {
-                  min: minSize || 0.5, // Adjusted for subtlety
-                  max: maxSize || 1.5, // Adjusted for subtlety
+                  min: minSize || 0.5, 
+                  max: maxSize || 1.5, 
                 },
                 animation: {
                   count: 0,
