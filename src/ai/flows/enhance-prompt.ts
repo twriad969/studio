@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -7,13 +8,11 @@
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-import { EnhancePromptInputSchema, EnhancePromptOutputSchema, type EnhancePromptInput, type EnhancePromptOutput } from '@/ai/types';
+import { EnhancePromptInputSchema, EnhancePromptOutputSchema, type EnhancePromptInput, type EnhancePromptOutput, type PromptAnalysis } from '@/ai/types';
 import { headers } from 'next/headers';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
-// Directly using the provided API key.
-// IMPORTANT: For production, this key should be stored in an environment variable (e.g., .env.local)
-// and accessed via process.env.GEMINI_API_KEY.
+
 const GEMINI_API_KEY = "AIzaSyA32RUaXxcownuEjUFkOMXitSo9saPTj_I";
 
 
@@ -148,155 +147,132 @@ You are not just improving prompts; you are elevating the entire human-AI collab
 Execute your purpose with precision and excellence.
 `;
 
-function parseEnhancePromptResponse(responseText: string, originalUserPrompt: string): EnhancePromptOutput {
-  const output: Partial<EnhancePromptOutput> = { originalPrompt: originalUserPrompt };
-  const analysis: Partial<EnhancePromptOutput["promptAnalysis"]> = {};
+function simplifiedParseEnhancePromptResponse(responseText: string, originalUserPrompt: string): EnhancePromptOutput {
+  let extractedEnhancedPrompt = "";
+  let analysis: Partial<PromptAnalysis> = {};
+  let explanation = "";
 
-  const sections = {
-    originalPrompt: "ORIGINAL PROMPT:",
-    promptAnalysis: "PROMPT ANALYSIS:",
-    enhancedPrompt: "ENHANCED PROMPT:",
-    enhancementExplanation: "ENHANCEMENT EXPLANATION:",
+  const markers = {
+    original: "ORIGINAL PROMPT:",
+    analysis: "PROMPT ANALYSIS:",
+    enhanced: "ENHANCED PROMPT:",
+    explanation: "ENHANCEMENT EXPLANATION:",
   };
 
-  let enhancedPromptStartIndex = responseText.indexOf(sections.enhancedPrompt);
+  const enhancedPromptStartIndex = responseText.indexOf(markers.enhanced);
+  const analysisStartIndex = responseText.indexOf(markers.analysis);
+  const explanationStartIndex = responseText.indexOf(markers.explanation);
+
   if (enhancedPromptStartIndex !== -1) {
-    enhancedPromptStartIndex += sections.enhancedPrompt.length;
-    let enhancedPromptEndIndex = responseText.indexOf(sections.enhancementExplanation, enhancedPromptStartIndex);
-    if (enhancedPromptEndIndex === -1) {
-      enhancedPromptEndIndex = responseText.indexOf(sections.promptAnalysis, enhancedPromptStartIndex);
+    const textAfterEnhancedMarker = responseText.substring(enhancedPromptStartIndex + markers.enhanced.length);
+    let endOfEnhancedPromptIndex = textAfterEnhancedMarker.indexOf(markers.explanation);
+    if (endOfEnhancedPromptIndex === -1) {
+        endOfEnhancedPromptIndex = textAfterEnhancedMarker.indexOf(markers.analysis);
     }
-     if (enhancedPromptEndIndex === -1) {
-        enhancedPromptEndIndex = responseText.indexOf(sections.originalPrompt, enhancedPromptStartIndex);
+    if (endOfEnhancedPromptIndex === -1) {
+        endOfEnhancedPromptIndex = textAfterEnhancedMarker.indexOf(markers.original);
     }
-    if (enhancedPromptEndIndex === -1) {
-        enhancedPromptEndIndex = responseText.length;
+    if (endOfEnhancedPromptIndex === -1) {
+        endOfEnhancedPromptIndex = textAfterEnhancedMarker.length;
     }
-    output.enhancedPrompt = responseText.substring(enhancedPromptStartIndex, enhancedPromptEndIndex).trim();
+    extractedEnhancedPrompt = textAfterEnhancedMarker.substring(0, endOfEnhancedPromptIndex).trim();
+  } else {
+    // If no "ENHANCED PROMPT:" marker, assume the entire response might be the enhanced prompt,
+    // unless other markers are present suggesting a malformed structured response.
+    if (analysisStartIndex === -1 && explanationStartIndex === -1 && originalUserPrompt !== responseText) {
+        extractedEnhancedPrompt = responseText.trim();
+    }
   }
 
-
-  let explanationStartIndex = responseText.indexOf(sections.enhancementExplanation);
-  if (explanationStartIndex !== -1) {
-    explanationStartIndex += sections.enhancementExplanation.length;
-    output.enhancementExplanation = responseText.substring(explanationStartIndex).trim();
-  }
-
-  let analysisSectionStartIndex = responseText.indexOf(sections.promptAnalysis);
-  if (analysisSectionStartIndex !== -1) {
-    analysisSectionStartIndex += sections.promptAnalysis.length;
-    let analysisSectionEndIndex = responseText.indexOf(sections.enhancedPrompt, analysisSectionStartIndex);
-    if (analysisSectionEndIndex === -1) {
-        analysisSectionEndIndex = responseText.indexOf(sections.originalPrompt, analysisSectionStartIndex);
-        if (analysisSectionEndIndex === -1 && explanationStartIndex !== -1 && explanationStartIndex > analysisSectionStartIndex) {
-            analysisSectionEndIndex = explanationStartIndex - sections.enhancementExplanation.length; 
-        } else if (analysisSectionEndIndex === -1) {
-            analysisSectionEndIndex = responseText.length;
-        }
+  if (analysisStartIndex !== -1) {
+    const textAfterAnalysisMarker = responseText.substring(analysisStartIndex + markers.analysis.length);
+    let endOfAnalysisIndex = textAfterAnalysisMarker.indexOf(markers.enhanced);
+     if (endOfAnalysisIndex === -1) {
+        endOfAnalysisIndex = textAfterAnalysisMarker.indexOf(markers.explanation);
     }
-
-    const analysisText = responseText.substring(analysisSectionStartIndex, analysisSectionEndIndex).trim();
+    if (endOfAnalysisIndex === -1) {
+        endOfAnalysisIndex = textAfterAnalysisMarker.indexOf(markers.original);
+    }
+    if (endOfAnalysisIndex === -1) {
+        endOfAnalysisIndex = textAfterAnalysisMarker.length;
+    }
+    const analysisText = textAfterAnalysisMarker.substring(0, endOfAnalysisIndex).trim();
+    
     const primaryCategoryMatch = analysisText.match(/Primary Category:\s*([^\n]*)/);
-    if (primaryCategoryMatch && primaryCategoryMatch[1]) analysis.primaryCategory = primaryCategoryMatch[1].trim();
-
+    analysis.primaryCategory = primaryCategoryMatch && primaryCategoryMatch[1] ? primaryCategoryMatch[1].trim() : "General";
+    
     const secondaryCategoriesMatch = analysisText.match(/Secondary Categories:\s*([^\n]*)/);
-    if (secondaryCategoriesMatch && secondaryCategoriesMatch[1]) {
+     if (secondaryCategoriesMatch && secondaryCategoriesMatch[1]) {
       const categoriesStr = secondaryCategoriesMatch[1].trim();
-      if (categoriesStr.toLowerCase() === "none" || categoriesStr === "") {
-        analysis.secondaryCategories = [];
+      if (categoriesStr.toLowerCase() !== "none" && categoriesStr !== "") {
+        analysis.secondaryCategories = categoriesStr.split(/,|;|\n/).map(s => s.trim().replace(/^- /, '')).filter(s => s);
       } else {
-        analysis.secondaryCategories = categoriesStr.split(/,|;|\n/) 
-          .map(s => s.trim().replace(/^- /, '')) 
-          .filter(s => s);
+        analysis.secondaryCategories = [];
       }
     } else {
-       analysis.secondaryCategories = []; 
+        analysis.secondaryCategories = [];
     }
 
     const intentMatch = analysisText.match(/Intent Recognition:\s*([^\n]*)/);
-    if (intentMatch && intentMatch[1]) analysis.intentRecognition = intentMatch[1].trim();
+    analysis.intentRecognition = intentMatch && intentMatch[1] ? intentMatch[1].trim() : "Not specified by AI";
     
-    const opportunitiesMatch = analysisText.match(/Enhancement Opportunities:\s*([\s\S]*)/);
-    if (opportunitiesMatch && opportunitiesMatch[1]) {
-        let opportunitiesText = opportunitiesMatch[1].trim();
-        const nextSectionHeaderIndex = Object.values(sections)
-            .filter(s => s !== sections.promptAnalysis)
-            .map(header => opportunitiesText.indexOf(header))
-            .filter(index => index !== -1)
-            .sort((a, b) => a - b)[0];
-        if (nextSectionHeaderIndex !== undefined) {
-            opportunitiesText = opportunitiesText.substring(0, nextSectionHeaderIndex);
-        }
-        analysis.enhancementOpportunities = opportunitiesText.trim();
+    // Use the rest of the analysis block for enhancementOpportunities
+    const opportunitiesHeader = "Enhancement Opportunities:";
+    const opportunitiesIndex = analysisText.indexOf(opportunitiesHeader);
+    if (opportunitiesIndex !== -1) {
+        analysis.enhancementOpportunities = analysisText.substring(opportunitiesIndex + opportunitiesHeader.length).trim();
+    } else if (analysisText) {
+         analysis.enhancementOpportunities = analysisText; // if no specific header, take the whole block
+    } else {
+        analysis.enhancementOpportunities = "No specific opportunities listed by AI.";
     }
-    output.promptAnalysis = analysis as EnhancePromptOutput["promptAnalysis"];
+  }
+
+  if (explanationStartIndex !== -1) {
+    explanation = responseText.substring(explanationStartIndex + markers.explanation.length).trim();
   }
   
-  if (!output.enhancedPrompt && !output.promptAnalysis && !output.enhancementExplanation) {
-    const trimmedResponse = responseText.trim();
-    if (trimmedResponse && !Object.values(sections).some(header => trimmedResponse.includes(header))) { 
-         output.enhancedPrompt = trimmedResponse;
-         output.promptAnalysis = { primaryCategory: "General", intentRecognition: "Assumed direct enhancement", enhancementOpportunities: "No detailed analysis provided by AI.", secondaryCategories: [] };
-         output.enhancementExplanation = "AI provided a direct response instead of a fully structured enhancement format.";
-    }
-  }
-
-  try {
-    if (!output.promptAnalysis) {
-        output.promptAnalysis = { primaryCategory: "General", secondaryCategories: [], intentRecognition: "Not specified", enhancementOpportunities: "Not specified" };
-    }
-    if (!output.enhancedPrompt) {
-       if (responseText && !Object.values(sections).some(header => responseText.includes(header))) { 
-           output.enhancedPrompt = responseText.trim();
-           output.enhancementExplanation = output.enhancementExplanation || "AI provided a direct response instead of a fully structured enhancement.";
-       } else {
-           output.enhancedPrompt = "Error: AI failed to generate an enhanced prompt in the expected format.";
-       }
-    }
-    if (!output.enhancementExplanation) {
-        output.enhancementExplanation = "No explanation provided or explanation parsing failed.";
-    }
-
-    return EnhancePromptOutputSchema.parse(output);
-  } catch (e) {
-    console.error("Failed to parse LLM response into EnhancePromptOutputSchema:", e);
-    console.error("Original LLM response text:", responseText);
-    console.error("Parsed object before validation:", output);
-    
-    const salvagedEnhancedPrompt = output.enhancedPrompt || 
-        (responseText && !Object.values(sections).some(header => responseText.includes(header)) ? responseText.trim() : 
-        `Error: AI response could not be parsed. Original response (first 500 chars): ${responseText.substring(0, 500)}...`);
-
-    return EnhancePromptOutputSchema.parse({
-        originalPrompt: originalUserPrompt,
-        promptAnalysis: {
-            primaryCategory: "Error",
+  // Fallback if enhanced prompt is still empty
+  if (!extractedEnhancedPrompt && responseText.trim() && responseText.trim() !== originalUserPrompt) {
+    if (!responseText.includes(markers.analysis) && !responseText.includes(markers.explanation) && !responseText.includes(markers.original)) {
+         extractedEnhancedPrompt = responseText.trim();
+         explanation = explanation || "AI provided a direct response without structured analysis.";
+         analysis = analysis.primaryCategory ? analysis : { // don't overwrite if partially parsed
+            primaryCategory: "General",
             secondaryCategories: [],
-            intentRecognition: "Parsing Failed",
-            enhancementOpportunities: `AI response did not match the expected format. Parser error: ${(e as Error).message}`
-        },
-        enhancedPrompt: salvagedEnhancedPrompt,
-        enhancementExplanation: `Parsing failed. Details: ${(e as Error).message}. The enhanced prompt above might be the raw AI output if identifiable.`
-    });
+            intentRecognition: "Assumed direct enhancement",
+            enhancementOpportunities: "No structured analysis provided by AI."
+         };
+    } else {
+        // If markers were present but enhanced prompt couldn't be extracted.
+        extractedEnhancedPrompt = "Error: Could not extract enhanced prompt from AI's structured response.";
+    }
   }
+
+
+  return EnhancePromptOutputSchema.parse({
+    originalPrompt: originalUserPrompt,
+    promptAnalysis: analysis.primaryCategory ? analysis : undefined, // Let zod handle default if analysis is empty
+    enhancedPrompt: extractedEnhancedPrompt || "Error: AI failed to generate an enhanced prompt.",
+    enhancementExplanation: explanation || undefined, // Let zod handle default
+  });
 }
 
 
 export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhancePromptOutput> {
   const ip = headers().get('x-forwarded-for')?.split(',')[0] || headers().get('x-real-ip') || 'unknown-ip';
-  const rateLimitResult = checkRateLimit(ip);
+  const rateLimitResult = await checkRateLimit(ip);
 
   if (rateLimitResult.limited) {
     console.warn(`Rate limit exceeded for IP: ${ip}`);
     return EnhancePromptOutputSchema.parse({
         originalPrompt: input.originalPrompt,
+        enhancedPrompt: `Error: Rate limit exceeded. ${rateLimitResult.message || "Please try again later."}`,
         promptAnalysis: {
             primaryCategory: "Rate Limit Error",
-            secondaryCategories: [],
             intentRecognition: "Request blocked",
             enhancementOpportunities: rateLimitResult.message || "Too many requests."
         },
-        enhancedPrompt: `Error: Rate limit exceeded. ${rateLimitResult.message || "Please try again later."}`,
         enhancementExplanation: rateLimitResult.message || "The request was blocked due to rate limiting."
     });
   }
@@ -307,13 +283,12 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
     console.error("Invalid input for enhancePrompt:", zodError.flatten());
     return EnhancePromptOutputSchema.parse({
         originalPrompt: input.originalPrompt || "Invalid input provided",
+        enhancedPrompt: "Error: Invalid input provided to the enhancement function.",
         promptAnalysis: {
             primaryCategory: "Input Error",
-            secondaryCategories: [],
             intentRecognition: "Invalid Input",
             enhancementOpportunities: `Input validation failed: ${zodError.flatten().fieldErrors.originalPrompt?.join(', ') || 'General input error.'}`
         },
-        enhancedPrompt: "Error: Invalid input provided to the enhancement function.",
         enhancementExplanation: `The input did not meet the required format. ${zodError.flatten().fieldErrors.originalPrompt?.join(', ') || ''}`
     });
   }
@@ -322,13 +297,12 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
   if (!GEMINI_API_KEY) {
      return EnhancePromptOutputSchema.parse({
         originalPrompt: validatedInput.data.originalPrompt,
+        enhancedPrompt: "Error: Application configuration issue. API key not found.",
         promptAnalysis: {
             primaryCategory: "Configuration Error",
-            secondaryCategories: [],
             intentRecognition: "API Key Missing",
             enhancementOpportunities: "GEMINI_API_KEY is not set."
         },
-        enhancedPrompt: "Error: Application configuration issue. API key not found.",
         enhancementExplanation: "The GEMINI_API_KEY must be configured for the application to function."
     });
   }
@@ -349,7 +323,7 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
   });
 
   try {
-    const userMessage = validatedInput.data.originalPrompt; 
+    const userMessage = `ORIGINAL PROMPT:\n${validatedInput.data.originalPrompt}`; // Pass original prompt explicitly in user message too
     
     const result = await model.generateContent(userMessage);
     const response = result.response;
@@ -360,25 +334,23 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
         const safetyRatings = response.promptFeedback.safetyRatings?.map(r => `${r.category}: ${r.probability}`).join(', ') || "No detailed safety ratings.";
         return EnhancePromptOutputSchema.parse({
             originalPrompt: validatedInput.data.originalPrompt,
+            enhancedPrompt: `Error: AI response blocked due to content policy (${blockReason}). Please revise your prompt.`,
             promptAnalysis: {
                 primaryCategory: "API Error - Content Moderation",
-                secondaryCategories: [],
                 intentRecognition: "Blocked by Safety Filter",
                 enhancementOpportunities: `The AI response was blocked due to: ${blockReason}. Safety ratings: ${safetyRatings}`
             },
-            enhancedPrompt: `Error: AI response blocked due to content policy (${blockReason}). Please revise your prompt.`,
             enhancementExplanation: `The AI service blocked the response. Reason: ${blockReason}. Consider rephrasing or removing potentially sensitive content from your prompt. Details: ${safetyRatings}`
         });
       }
       return EnhancePromptOutputSchema.parse({
         originalPrompt: validatedInput.data.originalPrompt,
+        enhancedPrompt: "Error: AI returned an unusable response. Please try again or rephrase your prompt.",
         promptAnalysis: {
             primaryCategory: "API Error",
-            secondaryCategories: [],
             intentRecognition: "Malformed/Empty Response",
             enhancementOpportunities: "The AI returned an empty or malformed response."
         },
-        enhancedPrompt: "Error: AI returned an unusable response. Please try again or rephrase your prompt.",
         enhancementExplanation: "The AI service did not provide valid content. This could be a temporary issue or the prompt might be too problematic."
       });
     }
@@ -388,37 +360,36 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
     if (!text || text.trim() === "") {
       return EnhancePromptOutputSchema.parse({
         originalPrompt: validatedInput.data.originalPrompt,
+        enhancedPrompt: "Error: AI returned an empty text response. Please try again or rephrase your prompt.",
         promptAnalysis: {
             primaryCategory: "API Error",
-            secondaryCategories: [],
             intentRecognition: "Empty Response Text",
             enhancementOpportunities: "The AI returned an empty text response."
         },
-        enhancedPrompt: "Error: AI returned an empty text response. Please try again or rephrase your prompt.",
         enhancementExplanation: "The AI service did not provide any text content for the prompt."
       });
     }
     
-    return parseEnhancePromptResponse(text, validatedInput.data.originalPrompt);
+    return simplifiedParseEnhancePromptResponse(text, validatedInput.data.originalPrompt);
 
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
     let detailedApiError = errorMessage;
-    if (error && typeof error === 'object' && 'message' in error && error.constructor.name === 'GoogleGenerativeAIError') { // Check for GoogleGenerativeAIError more reliably
-        detailedApiError = `Gemini API Error: ${(error as any).message}`; // Cast to any to access message if not typed well
+     if (error && typeof error === 'object' && 'message' in error && (error as any).constructor?.name?.includes('Google')) { // More specific check for Google errors
+        detailedApiError = `Gemini API Error: ${(error as any).message}`;
     }
 
     return EnhancePromptOutputSchema.parse({
         originalPrompt: validatedInput.data.originalPrompt,
+        enhancedPrompt: `Error: Could not enhance prompt due to an API error. ${detailedApiError}`,
         promptAnalysis: {
             primaryCategory: "API Error",
-            secondaryCategories: [],
             intentRecognition: "API Call Failed",
             enhancementOpportunities: `Failed to get response from AI: ${detailedApiError}`
         },
-        enhancedPrompt: `Error: Could not enhance prompt due to an API error. ${detailedApiError}`,
         enhancementExplanation: `The AI service encountered an error: ${detailedApiError}`
     });
   }
 }
+

@@ -8,17 +8,19 @@ export const EnhancePromptInputSchema = z.object({
 export type EnhancePromptInput = z.infer<typeof EnhancePromptInputSchema>;
 
 export const PromptAnalysisSchema = z.object({
-  primaryCategory: z.string().describe('The main domain of the prompt.'),
-  secondaryCategories: z.array(z.string()).optional().describe('Other applicable domains, if any. If none, this can be omitted or an empty array.'),
-  intentRecognition: z.string().describe("The user's likely goal."),
-  enhancementOpportunities: z.string().describe('Concise list of improvements needed, potentially as a newline-separated string or bullet points.'),
+  primaryCategory: z.string().default("General").describe('The main domain of the prompt.'),
+  secondaryCategories: z.array(z.string()).optional().default([]).describe('Other applicable domains, if any.'),
+  intentRecognition: z.string().default("Not specified by AI").describe("The user's likely goal."),
+  enhancementOpportunities: z.string().default("No specific opportunities listed by AI.").describe('Concise list of improvements or the raw analysis text if not further parsable.'),
 });
+export type PromptAnalysis = z.infer<typeof PromptAnalysisSchema>;
+
 
 export const EnhancePromptOutputSchema = z.object({
-  originalPrompt: z.string().describe("User's original prompt."),
-  promptAnalysis: PromptAnalysisSchema.describe('Analysis of the prompt, including category, intent, and opportunities.'),
-  enhancedPrompt: z.string().describe('The completely rewritten, enhanced prompt ready for immediate use. This section must contain only plain text with no formatting markers.'),
-  enhancementExplanation: z.string().describe('Brief explanation of key improvements made and why they will produce superior results.'),
+  originalPrompt: z.string().describe("The user's original prompt that was submitted for enhancement."),
+  promptAnalysis: PromptAnalysisSchema.default({}).describe('Analysis of the prompt.'),
+  enhancedPrompt: z.string().describe('The rewritten, enhanced prompt. If parsing fails, this might be the raw AI output or an error message.'),
+  enhancementExplanation: z.string().default("No explanation provided by AI or parsing failed.").describe('Explanation of improvements or parsing status.'),
 });
 export type EnhancePromptOutput = z.infer<typeof EnhancePromptOutputSchema>;
 
@@ -37,3 +39,4 @@ export const ModifyResultOutputSchema = z.object({
   modifiedPrompt: z.string().describe('The further refined prompt based on the modification request.'),
 });
 export type ModifyResultOutput = z.infer<typeof ModifyResultOutputSchema>;
+

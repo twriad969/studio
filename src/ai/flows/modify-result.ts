@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -11,9 +12,7 @@ import { ModifyResultInputSchema, ModifyResultOutputSchema, type ModifyResultInp
 import { headers } from 'next/headers';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
-// Directly using the provided API key.
-// IMPORTANT: For production, this key should be stored in an environment variable (e.g., .env.local)
-// and accessed via process.env.GEMINI_API_KEY.
+
 const GEMINI_API_KEY = "AIzaSyA32RUaXxcownuEjUFkOMXitSo9saPTj_I";
 
 const modifyResultSystemInstruction = `You are Prompthancer's Refinement Engine, an advanced prompt modification expert specializing in applying precise adjustments to already-enhanced prompts. Your purpose is to refine enhanced prompts based on specific user modification requests while preserving valuable improvements.
@@ -102,7 +101,7 @@ You are the final refining touch in the Prompthancer system, ensuring users can 
 
 export async function modifyResult(input: ModifyResultInput): Promise<ModifyResultOutput> {
   const ip = headers().get('x-forwarded-for')?.split(',')[0] || headers().get('x-real-ip') || 'unknown-ip';
-  const rateLimitResult = checkRateLimit(ip);
+  const rateLimitResult = await checkRateLimit(ip);
 
   if (rateLimitResult.limited) {
     console.warn(`Rate limit exceeded for IP (modifyResult): ${ip}`);
@@ -176,12 +175,13 @@ Based on the above, please provide ONLY the refined prompt.`;
       });
     }
     
+    // The system prompt requests ONLY the refined prompt, so the entire text response is considered the modified prompt.
     return ModifyResultOutputSchema.parse({ modifiedPrompt: text.trim() });
 
   } catch (error) {
     console.error("Error calling Gemini API for modification:", error);
     let errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
-    if (error && typeof error === 'object' && 'message' in error && error.constructor.name === 'GoogleGenerativeAIError') {
+    if (error && typeof error === 'object' && 'message' in error && (error as any).constructor?.name?.includes('Google')) { // More specific check for Google errors
         errorMessage = `Gemini API Error: ${(error as any).message}`;
     }
      return ModifyResultOutputSchema.parse({ 
@@ -189,3 +189,4 @@ Based on the above, please provide ONLY the refined prompt.`;
     });
   }
 }
+
