@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -10,13 +11,11 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AnimatePresence, motion } from 'framer-motion';
-// Spotlight import removed as it's no longer used here.
 import { cn } from '@/lib/utils';
 
-// currentTheme prop removed from interface
 interface PromptEnhancementSectionProps {}
 
-export default function PromptEnhancementSection({}: PromptEnhancementSectionProps) { // currentTheme prop removed
+export default function PromptEnhancementSection({}: PromptEnhancementSectionProps) {
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [submittedOriginalPrompt, setSubmittedOriginalPrompt] = useState<string | null>(null);
   const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
@@ -33,7 +32,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
     setIsLoadingEnhance(true);
     setError(null);
-    setEnhancedPrompt(null);
+    setEnhancedPrompt(null); // Clear previous enhanced prompt
     setSubmittedOriginalPrompt(originalPrompt);
 
     try {
@@ -67,7 +66,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
     try {
       const input: ModifyResultInput = {
-        originalPrompt: submittedOriginalPrompt,
+        originalPrompt: submittedOriginalPrompt, // Use the submitted original prompt
         enhancedPrompt,
         modificationRequest: modificationRequest.trim(),
       };
@@ -107,15 +106,21 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
   }, [originalPrompt]);
 
   useEffect(() => {
-    if ((enhancedPrompt || error) && resultsSectionRef.current && !isLoadingEnhance) {
-      resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if ((enhancedPrompt || error || isLoadingEnhance) && resultsSectionRef.current && !isModifyModalOpen) { // Scroll when loading starts too
+      // Only scroll if not just opened the modify modal which can cause a re-render.
+      // And ensure we have something to scroll to or an action is in progress.
+      if (isLoadingEnhance || enhancedPrompt || error) {
+        resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
-  }, [enhancedPrompt, error, isLoadingEnhance]);
+  }, [enhancedPrompt, error, isLoadingEnhance, isModifyModalOpen]);
 
 
   return (
-    <section className="w-full max-w-3xl mx-auto space-y-10 py-12 md:py-16 relative">
-      {/* Spotlight component removed from here */}
+    <section 
+      id="prompt-enhancement-section" 
+      className="w-full max-w-3xl mx-auto space-y-10 py-12 md:py-16 relative mt-12 sm:mt-16" // Added margin-top for spacing
+    >
       <div className="relative z-10 text-center space-y-3 mb-10">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
           Enhance Your Prompt
@@ -153,10 +158,9 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
       <div ref={resultsSectionRef} className="scroll-mt-20 md:scroll-mt-24">
         <AnimatePresence>
-          {(isLoadingEnhance || (enhancedPrompt && submittedOriginalPrompt) || (!isLoadingEnhance && !enhancedPrompt && submittedOriginalPrompt)) && (
+          {(isLoadingEnhance || (enhancedPrompt && submittedOriginalPrompt) || (!isLoadingEnhance && !enhancedPrompt && submittedOriginalPrompt && !error)) && (
             <div className="relative z-10">
               <ResultsDisplay
-                originalPrompt={submittedOriginalPrompt} // Kept for ModifyPromptModal
                 enhancedPrompt={enhancedPrompt}
                 isLoading={isLoadingEnhance}
                 onModifyClick={() => setIsModifyModalOpen(true)}
@@ -173,7 +177,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           onClose={() => setIsModifyModalOpen(false)}
           onSubmit={handleModifySubmit}
           isLoading={isLoadingModify}
-          originalPrompt={submittedOriginalPrompt}
+          originalPrompt={submittedOriginalPrompt} // Pass submitted original prompt
           currentEnhancedPrompt={enhancedPrompt}
         />
       )}

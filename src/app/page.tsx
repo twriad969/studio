@@ -40,12 +40,13 @@ export default function HomePage() {
         className={cn(
           "absolute inset-0 z-0",
           "[background-size:40px_40px]",
-          "bg-[linear-gradient(to_right,hsl(var(--grid-color))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--grid-color))_1px,transparent_1px)]"
+           theme === "dark" 
+            ? "dark:[background-image:linear-gradient(to_right,hsl(var(--grid-color))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--grid-color))_1px,transparent_1px)]"
+            : "[background-image:linear-gradient(to_right,hsl(var(--grid-color))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--grid-color))_1px,transparent_1px)]"
         )}
       />
       <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
       
-      {/* Dark Mode Spotlight, positioned to cover upper area */}
       {theme === "dark" && (
         <Spotlight
           className="absolute -top-40 left-1/2 -translate-x-1/2 md:-top-20 z-[2]"
@@ -65,7 +66,7 @@ export default function HomePage() {
           {/* Hero Section: Centered, takes initial viewport height minus header */}
           <section 
             id="hero"
-            className="flex flex-col items-center justify-center min-h-[calc(100vh-theme(spacing.14))] container mx-auto px-4 sm:px-6 lg:px-8"
+            className="flex flex-col items-center justify-center min-h-[calc(85vh-theme(spacing.14))] container mx-auto px-4 sm:px-6 lg:px-8" // Adjusted min-height
           >
             <CoverDemo /> {/* CoverDemo has internal padding (py-10 md:py-16) */}
           </section>
