@@ -1,4 +1,3 @@
-// src/ai/flows/modify-result.ts
 'use server';
 
 /**
@@ -9,8 +8,8 @@
  * - ModifyResultOutput - The return type for the modifyResult function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
+import { z } from 'genkit'; // Zod is still useful for schema definition
 
 const ModifyResultInputSchema = z.object({
   originalPrompt: z.string().describe('The original prompt entered by the user.'),
@@ -25,10 +24,6 @@ const ModifyResultOutputSchema = z.object({
   modifiedPrompt: z.string().describe('The further refined prompt based on the modification request.'),
 });
 export type ModifyResultOutput = z.infer<typeof ModifyResultOutputSchema>;
-
-export async function modifyResult(input: ModifyResultInput): Promise<ModifyResultOutput> {
-  return modifyResultFlow(input);
-}
 
 const modifyResultSystemInstruction = `You are Prompthancer's Refinement Engine, an advanced prompt modification expert specializing in applying precise adjustments to already-enhanced prompts. Your purpose is to refine enhanced prompts based on specific user modification requests while preserving valuable improvements.
 
@@ -114,29 +109,48 @@ Your refinements must:
 You are the final refining touch in the Prompthancer system, ensuring users can iterate their prompts to perfection with minimal effort. Execute your purpose with precision and excellence.
 `;
 
-const prompt = ai.definePrompt({
-  name: 'modifyResultPrompt',
-  system: modifyResultSystemInstruction,
-  input: {schema: ModifyResultInputSchema},
-  output: {schema: ModifyResultOutputSchema},
-  prompt: `Original Prompt: {{{originalPrompt}}}
-Enhanced Prompt: {{{enhancedPrompt}}}
-Modification Request: {{{modificationRequest}}}
-
-Please provide the refined prompt based on these inputs.`,
-});
-
-const modifyResultFlow = ai.defineFlow(
-  {
-    name: 'modifyResultFlow',
-    inputSchema: ModifyResultInputSchema,
-    outputSchema: ModifyResultOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error("The AI failed to generate a modified prompt according to the expected schema.");
-    }
-    return output;
+export async function modifyResult(input: ModifyResultInput): Promise<ModifyResultOutput> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY environment variable is not set.");
   }
-);
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash-latest",
+     systemInstruction: {
+        role: "model",
+        parts: [{ text: modifyResultSystemInstruction }],
+    },
+    safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    ]
+  });
+  
+  const userPromptContent = `Original Prompt: ${input.originalPrompt}
+Enhanced Prompt: ${input.enhancedPrompt}
+Modification Request: ${input.modificationRequest}
+
+Please provide the refined prompt based on these inputs. Ensure your output is ONLY the refined prompt itself, with no additional commentary or formatting.`;
+
+  try {
+    const result = await model.generateContent(userPromptContent);
+    const response = result.response;
+    const text = response.text();
+
+    if (!text) {
+      throw new Error("The AI returned an empty response for modification.");
+    }
+    
+    // The system prompt for modifyResult explicitly states the output is *only* the refined prompt.
+    return ModifyResultOutputSchema.parse({ modifiedPrompt: text.trim() });
+
+  } catch (error) {
+    console.error("Error calling Gemini API for modification:", error);
+     return ModifyResultOutputSchema.parse({ 
+        modifiedPrompt: `Error: Could not modify prompt due to an API error. ${(error as Error).message}. Original request: ${input.modificationRequest}`
+    });
+  }
+}
