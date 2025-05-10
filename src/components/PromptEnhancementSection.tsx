@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Added useRef
 import PromptForm from './PromptForm';
 import ResultsDisplay from './ResultsDisplay';
 import ModifyPromptModal from './ModifyPromptModal';
 import { enhancePrompt, EnhancePromptInput, EnhancePromptOutput } from '@/ai/flows/enhance-prompt';
 import { modifyResult, ModifyResultInput, ModifyResultOutput } from '@/ai/flows/modify-result';
 import { useToast } from '@/hooks/use-toast';
-import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react'; // Renamed to avoid conflict
+import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react'; 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AnimatePresence, motion } from 'framer-motion';
 import { Spotlight } from '@/components/ui/spotlight';
@@ -26,6 +26,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
   const [error, setError] = useState<string | null>(null);
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
   const { toast } = useToast();
+  const resultsSectionRef = useRef<HTMLDivElement>(null); // Ref for scrolling
 
   const handleEnhanceSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -33,7 +34,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
 
     setIsLoadingEnhance(true);
     setError(null);
-    setEnhancedPrompt(null);
+    setEnhancedPrompt(null); 
     setSubmittedOriginalPrompt(originalPrompt);
 
     try {
@@ -95,17 +96,23 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
   
   useEffect(() => {
     if (error) {
-      // Clear error after a delay or on new input to prevent it sticking
-      const timer = setTimeout(() => setError(null), 5000);
+      const timer = setTimeout(() => setError(null), 7000); // Increased duration for error visibility
       return () => clearTimeout(timer);
     }
   }, [error]);
 
   useEffect(() => {
-    if (originalPrompt) { // Clear error when user types new prompt
+    if (originalPrompt) { 
         setError(null);
     }
   }, [originalPrompt]);
+
+  // Scroll to results or error when they appear
+  useEffect(() => {
+    if ((enhancedPrompt || error) && resultsSectionRef.current && !isLoadingEnhance) {
+      resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [enhancedPrompt, error, isLoadingEnhance]);
 
 
   return (
@@ -113,7 +120,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
       {currentTheme === 'dark' && (
         <Spotlight
           className="-top-40 left-0 md:-top-20 md:left-30"
-          fill="white" // Spotlight fill will be white, visible in dark mode
+          fill="white" 
         />
       )}
       <div className="relative z-10 text-center space-y-3 mb-10">
@@ -151,18 +158,22 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {(isLoadingEnhance || (enhancedPrompt && submittedOriginalPrompt)) && (
-          <div className="relative z-10 mt-12"> {/* Added margin top for spacing */}
-            <ResultsDisplay
-              originalPrompt={submittedOriginalPrompt}
-              enhancedPrompt={enhancedPrompt}
-              isLoading={isLoadingEnhance}
-              onModifyClick={() => setIsModifyModalOpen(true)}
-            />
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Container for ResultsDisplay that will be scrolled to */}
+      <div ref={resultsSectionRef} className="scroll-mt-20 md:scroll-mt-24"> {/* scroll-mt to offset sticky header */}
+        <AnimatePresence>
+          {(isLoadingEnhance || (enhancedPrompt && submittedOriginalPrompt) || (!isLoadingEnhance && !enhancedPrompt && submittedOriginalPrompt)) && ( // Show even if enhancedPrompt is null after loading (e.g. API error but not 'error' state)
+            <div className="relative z-10">
+              <ResultsDisplay
+                originalPrompt={submittedOriginalPrompt}
+                enhancedPrompt={enhancedPrompt}
+                isLoading={isLoadingEnhance}
+                onModifyClick={() => setIsModifyModalOpen(true)}
+              />
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+
 
       {submittedOriginalPrompt && enhancedPrompt && (
         <ModifyPromptModal
