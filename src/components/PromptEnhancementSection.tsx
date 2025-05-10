@@ -7,7 +7,7 @@ import ResultsDisplay from './ResultsDisplay';
 import ModifyPromptModal from './ModifyPromptModal';
 import { enhancePrompt } from '@/ai/flows/enhance-prompt';
 import { modifyResult } from '@/ai/flows/modify-result';
-import type { EnhancePromptInput, EnhancePromptOutput, ModifyResultInput, ModifyResultOutput } from '@/ai/types'; // Updated import path
+import type { EnhancePromptInput, EnhancePromptOutput, ModifyResultInput, ModifyResultOutput } from '@/ai/types';
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,14 +20,30 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [submittedOriginalPrompt, setSubmittedOriginalPrompt] = useState<string | null>(null);
   const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
-  // Optional: Store the full structured result if other parts need to be displayed
-  // const [fullEnhancementResult, setFullEnhancementResult] = useState<EnhancePromptOutput | null>(null);
   const [isLoadingEnhance, setIsLoadingEnhance] = useState(false);
   const [isLoadingModify, setIsLoadingModify] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
   const { toast } = useToast();
   const resultsSectionRef = useRef<HTMLDivElement>(null);
+
+  const cleanPromptString = (promptStr: string | null | undefined, errorContext: string): string | null => {
+    if (typeof promptStr === 'string') {
+      if (promptStr.trim().toLowerCase() === "undefined") {
+        setError(`AI returned an unusable response for ${errorContext}. Please try rephrasing.`);
+        return null;
+      }
+      if (promptStr.endsWith(".undefined")) {
+        return promptStr.substring(0, promptStr.length - ".undefined".length);
+      }
+      return promptStr;
+    }
+    if (promptStr === null) return null; // Explicitly null is fine
+    
+    // Undefined or other types
+    setError(`Invalid prompt format received for ${errorContext}.`);
+    return null;
+  };
 
   const handleEnhanceSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,25 +52,29 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     setIsLoadingEnhance(true);
     setError(null);
     setEnhancedPrompt(null); 
-    // setFullEnhancementResult(null);
     setSubmittedOriginalPrompt(originalPrompt);
 
     try {
       const input: EnhancePromptInput = { originalPrompt: originalPrompt.trim() };
       const result: EnhancePromptOutput = await enhancePrompt(input);
       
-      // setFullEnhancementResult(result);
-      if (result.enhancedPrompt) {
-        setEnhancedPrompt(result.enhancedPrompt);
-      } else {
-        throw new Error("Enhanced prompt was not returned in the expected format.");
+      const cleanedEnhancedPrompt = cleanPromptString(result.enhancedPrompt, "enhancement");
+
+      if (cleanedEnhancedPrompt !== null) {
+        setEnhancedPrompt(cleanedEnhancedPrompt);
+        toast({
+          title: "Prompt Enhanced!",
+          description: "Your enhanced prompt is ready.",
+          action: <SparklesIcon className="text-accent" />
+        });
+      } else if (!error) { // If cleanPromptString set error, don't override
+         setError("Failed to enhance prompt or received an invalid format.");
+         toast({
+            variant: "destructive",
+            title: "Enhancement Failed",
+            description: "Received an invalid format for the enhanced prompt.",
+         });
       }
-      
-      toast({
-        title: "Prompt Enhanced!",
-        description: "Your enhanced prompt is ready.",
-        action: <SparklesIcon className="text-accent" />
-      });
     } catch (err) {
       console.error("Error enhancing prompt:", err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -78,19 +98,36 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     try {
       const input: ModifyResultInput = {
         originalPrompt: submittedOriginalPrompt,
-        enhancedPrompt,
+        enhancedPrompt, // Send the current (potentially already cleaned) enhanced prompt
         modificationRequest: modificationRequest.trim(),
       };
       const result: ModifyResultOutput = await modifyResult(input);
-      setEnhancedPrompt(result.modifiedPrompt);
-      // If storing full result, update it too or parts of it if modification changes explanation etc.
-      // For now, only the prompt string is updated.
-      setIsModifyModalOpen(false);
-      toast({
-        title: "Prompt Modified!",
-        description: "Your prompt has been successfully updated.",
-        action: <SparklesIcon className="text-accent" />
-      });
+      
+      const cleanedModifiedPrompt = cleanPromptString(result.modifiedPrompt, "modification");
+
+      if (cleanedModifiedPrompt !== null) {
+        setEnhancedPrompt(cleanedModifiedPrompt);
+        setIsModifyModalOpen(false);
+        toast({
+          title: "Prompt Modified!",
+          description: "Your prompt has been successfully updated.",
+          action: <SparklesIcon className="text-accent" />
+        });
+      } else if (!error) {
+        // If cleanedModifiedPrompt is null and no error was set by cleanPromptString
+        // it means the original result.modifiedPrompt was not a string or was problematic
+        setError("Failed to modify prompt or received an invalid format.");
+        toast({
+            variant: "destructive",
+            title: "Modification Failed",
+            description: "Received an invalid format for the modified prompt.",
+        });
+        // Optionally, do not close the modal or revert enhancedPrompt to its pre-modification state
+        // setIsModifyModalOpen(true); // Keep modal open
+      }
+      // If cleanPromptString set an error, the modal will remain open by default,
+      // and enhancedPrompt won't be updated with a problematic value.
+      
     } catch (err) {
       console.error("Error modifying prompt:", err);
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
@@ -182,7 +219,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
       </div>
 
 
-      {submittedOriginalPrompt && enhancedPrompt && (
+      {submittedOriginalPrompt && enhancedPrompt && ( /* Only show modal if there's a valid enhanced prompt to modify */
         <ModifyPromptModal
           isOpen={isModifyModalOpen}
           onClose={() => setIsModifyModalOpen(false)}
@@ -195,3 +232,4 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     </section>
   );
 }
+
