@@ -11,7 +11,6 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Spotlight } from "@/components/ui/spotlight";
-// BackgroundBeams import removed
 
 export default function HomePage() {
   const { theme, setTheme } = useTheme();
@@ -55,8 +54,6 @@ export default function HomePage() {
         />
       )}
       
-      {/* BackgroundBeams component removed */}
-
       <div className="relative z-10 flex flex-col min-h-screen">
         <AppHeader>
           <Button onClick={toggleDarkMode} variant="ghost" size="icon" aria-label="Toggle theme">
@@ -64,7 +61,7 @@ export default function HomePage() {
           </Button>
         </AppHeader>
         <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <section className="text-center">
+          <section className="text-center mb-16 md:mb-24"> {/* Added margin-bottom for spacing */}
             <CoverDemo />
           </section>
 
@@ -76,3 +73,4 @@ export default function HomePage() {
     </div>
   );
 }
+
