@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -8,8 +7,14 @@
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-import { ModifyResultInputSchema, ModifyResultOutputSchema, type ModifyResultInput, type ModifyResultOutput } from "@/ai/types"; // Import types
+import { ModifyResultInputSchema, ModifyResultOutputSchema, type ModifyResultInput, type ModifyResultOutput } from "@/ai/types";
+import { headers } from 'next/headers';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
+// Directly using the provided API key.
+// IMPORTANT: For production, this key should be stored in an environment variable (e.g., .env.local)
+// and accessed via process.env.GEMINI_API_KEY.
+const GEMINI_API_KEY = "AIzaSyA32RUaXxcownuEjUFkOMXitSo9saPTj_I";
 
 const modifyResultSystemInstruction = `You are Prompthancer's Refinement Engine, an advanced prompt modification expert specializing in applying precise adjustments to already-enhanced prompts. Your purpose is to refine enhanced prompts based on specific user modification requests while preserving valuable improvements.
 
@@ -96,7 +101,16 @@ You are the final refining touch in the Prompthancer system, ensuring users can 
 `;
 
 export async function modifyResult(input: ModifyResultInput): Promise<ModifyResultOutput> {
-   // Validate input with Zod schema
+  const ip = headers().get('x-forwarded-for')?.split(',')[0] || headers().get('x-real-ip') || 'unknown-ip';
+  const rateLimitResult = checkRateLimit(ip);
+
+  if (rateLimitResult.limited) {
+    console.warn(`Rate limit exceeded for IP (modifyResult): ${ip}`);
+    return ModifyResultOutputSchema.parse({
+      modifiedPrompt: `Error: Rate limit exceeded. ${rateLimitResult.message || "Please try again later."}`
+    });
+  }
+
   const validatedInput = ModifyResultInputSchema.safeParse(input);
   if (!validatedInput.success) {
     const zodError = validatedInput.error;
@@ -106,13 +120,13 @@ export async function modifyResult(input: ModifyResultInput): Promise<ModifyResu
     });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return ModifyResultOutputSchema.parse({ 
         modifiedPrompt: `Error: Application configuration issue. API key not found. Original request: ${validatedInput.data.modificationRequest}`
     });
   }
 
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
      systemInstruction: {
@@ -167,8 +181,8 @@ Based on the above, please provide ONLY the refined prompt.`;
   } catch (error) {
     console.error("Error calling Gemini API for modification:", error);
     let errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
-    if (error && typeof error === 'object' && 'message' in error && 'stack' in error && error.constructor.name === 'GoogleGenerativeAIError') {
-        errorMessage = `Gemini API Error: ${error.message}`;
+    if (error && typeof error === 'object' && 'message' in error && error.constructor.name === 'GoogleGenerativeAIError') {
+        errorMessage = `Gemini API Error: ${(error as any).message}`;
     }
      return ModifyResultOutputSchema.parse({ 
         modifiedPrompt: `Error: Could not modify prompt due to an API error. ${errorMessage}. Original request: ${validatedInput.data.modificationRequest}`

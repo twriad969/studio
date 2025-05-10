@@ -38,32 +38,24 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
     let _str = promptStr.trim();
 
-    // Handle if the entire string is just "undefined" (case-insensitive)
+    // Handles if the entire string is "undefined" (case-insensitive) after trim
     if (_str.toLowerCase() === "undefined") {
       setError(`AI returned an unusable response for ${errorContext} (was 'undefined'). Please try rephrasing.`);
       return null;
     }
 
-    // More robustly remove ".undefined" if it appears at the very end of the string,
-    // possibly preceded by whitespace or with different casing.
-    const trailingUndefinedPattern = /\.undefined\s*$/i; 
+    // More robustly remove ".undefined" or "undefined" if it appears at the very end
+    // Catches: "text.undefined", "textundefined", "text.UNDEFINED  ", "text UNDEFINED"
+    const trailingUndefinedPattern = /(\.?undefined)\s*$/i; 
     if (trailingUndefinedPattern.test(_str)) {
-      _str = _str.replace(trailingUndefinedPattern, "");
-      _str = _str.trim(); // Trim again after replacement
+      _str = _str.replace(trailingUndefinedPattern, "").trim();
     }
     
-    // If, after all cleaning, the string is empty
-    if (_str === "") {
+    // If, after all cleaning, the string is empty or became "undefined" again (e.g. original was just ".undefined")
+    if (_str === "" || _str.toLowerCase() === "undefined") {
       setError(`AI returned an empty or unusable response for ${errorContext} after cleaning. Please try rephrasing.`);
       return null;
     }
-    
-    // Final check: if for some reason it became "undefined" after manipulation
-    if (_str.toLowerCase() === "undefined") {
-      setError(`AI returned an unusable response for ${errorContext} (was 'undefined'). Please try rephrasing.`);
-      return null;
-    }
-
 
     return _str;
   };
@@ -81,6 +73,18 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
       const input: EnhancePromptInput = { originalPrompt: originalPrompt.trim() };
       const result: EnhancePromptOutput = await enhancePrompt(input);
       
+      // Check for rate limit or other specific error messages from the flow
+      if (result.enhancedPrompt.startsWith("Error: Rate limit exceeded") || result.enhancedPrompt.startsWith("Error: Application configuration issue")) {
+        setError(result.enhancedPrompt);
+        toast({
+          variant: "destructive",
+          title: "Enhancement Failed",
+          description: result.enhancementExplanation || result.enhancedPrompt,
+        });
+        setIsLoadingEnhance(false);
+        return;
+      }
+      
       const cleanedEnhancedPrompt = cleanPromptString(result.enhancedPrompt, "enhancement");
 
       if (cleanedEnhancedPrompt !== null && cleanedEnhancedPrompt.trim() !== "") {
@@ -91,13 +95,12 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           action: <SparklesIcon className="text-accent" />
         });
       } else if (!error) { 
-         // If cleanPromptString returned null/empty but didn't set an error itself, set a generic one.
-         const defaultErrorMsg = "Failed to enhance prompt or received an invalid format from AI.";
+         const defaultErrorMsg = result.enhancementExplanation || "Failed to enhance prompt or received an invalid format from AI.";
          setError(defaultErrorMsg);
          toast({
             variant: "destructive",
             title: "Enhancement Failed",
-            description: "Received an invalid or unusable format for the enhanced prompt.",
+            description: defaultErrorMsg,
          });
       }
     } catch (err) {
@@ -123,10 +126,23 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     try {
       const input: ModifyResultInput = {
         originalPrompt: submittedOriginalPrompt,
-        enhancedPrompt, // Pass the currently displayed (and cleaned) enhanced prompt
+        enhancedPrompt,
         modificationRequest: modificationRequest.trim(),
       };
       const result: ModifyResultOutput = await modifyResult(input);
+
+      if (result.modifiedPrompt.startsWith("Error: Rate limit exceeded")) {
+        setError(result.modifiedPrompt);
+        toast({
+          variant: "destructive",
+          title: "Modification Failed",
+          description: result.modifiedPrompt,
+        });
+        setIsLoadingModify(false);
+        // Keep modal open if rate limited, or close and show toast
+        // setIsModifyModalOpen(false); // Decide if modal should close
+        return;
+      }
       
       const cleanedModifiedPrompt = cleanPromptString(result.modifiedPrompt, "modification");
 
@@ -144,7 +160,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
         toast({
             variant: "destructive",
             title: "Modification Failed",
-            description: "Received an invalid or unusable format for the modified prompt.",
+            description: defaultErrorMsg,
         });
       }
       
@@ -252,3 +268,4 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     </section>
   );
 }
+
