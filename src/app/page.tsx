@@ -40,8 +40,7 @@ export default function HomePage() {
         className={cn(
           "absolute inset-0 z-0",
           "[background-size:40px_40px]",
-          // hsl(var(--grid-color)) will be resolved based on the current theme (light/dark)
-          "[background-image:linear-gradient(to_right,hsl(var(--grid-color))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--grid-color))_1px,transparent_1px)]"
+          "bg-[linear-gradient(to_right,hsl(var(--grid-color))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--grid-color))_1px,transparent_1px)]"
         )}
       />
       <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
@@ -60,17 +59,28 @@ export default function HomePage() {
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
         </AppHeader>
-        <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <section className="text-center mb-16 md:mb-24"> {/* Added margin-bottom for spacing */}
-            <CoverDemo />
+
+        <div className="flex-grow flex flex-col"> {/* This wrapper manages layout for hero and subsequent scrolling content */}
+          
+          {/* Hero Section: Centered, takes initial viewport height minus header */}
+          <section 
+            id="hero"
+            className="flex flex-col items-center justify-center min-h-[calc(100vh-theme(spacing.14))] container mx-auto px-4 sm:px-6 lg:px-8"
+          >
+            <CoverDemo /> {/* CoverDemo has internal padding (py-10 md:py-16) */}
           </section>
 
+          {/* PromptEnhancementSection: Follows hero, uses its own internal padding for spacing. */}
+          {/* Internal padding: py-12 md:py-16. This creates natural space from hero. */}
           <PromptEnhancementSection />
+
+          {/* EducationalContent: Follows PromptEnhancementSection, uses its own internal padding/margin. */}
+          {/* Internal: mt-20 sm:mt-28, py-16. The 'mt' provides space from PromptEnhancementSection. */}
           <EducationalContent />
-        </main>
+        </div>
+        
         <AppFooter />
       </div>
     </div>
   );
 }
-
