@@ -28,8 +28,6 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
   const cleanPromptString = (promptStr: string | null | undefined, errorContext: string): string | null => {
     if (promptStr === null || promptStr === undefined) {
-      // Let the caller decide if null/undefined is an error.
-      // This function's job is cleaning, not validating existence if null is permissible.
       return null;
     }
 
@@ -40,24 +38,32 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
     let _str = promptStr.trim();
 
-    // Scenario 1: The string itself is "undefined" (case-insensitive) after trimming
+    // Handle if the entire string is just "undefined" (case-insensitive)
     if (_str.toLowerCase() === "undefined") {
       setError(`AI returned an unusable response for ${errorContext} (was 'undefined'). Please try rephrasing.`);
       return null;
     }
 
-    // Scenario 2: The trimmed string ends with ".undefined"
-    if (_str.endsWith(".undefined")) {
-      _str = _str.substring(0, _str.length - ".undefined".length);
-      _str = _str.trim(); // Trim again in case the original was like " text.undefined "
+    // More robustly remove ".undefined" if it appears at the very end of the string,
+    // possibly preceded by whitespace or with different casing.
+    const trailingUndefinedPattern = /\.undefined\s*$/i; 
+    if (trailingUndefinedPattern.test(_str)) {
+      _str = _str.replace(trailingUndefinedPattern, "");
+      _str = _str.trim(); // Trim again after replacement
     }
     
-    // Scenario 3: After cleaning, is the string empty?
-    // This implies the original string was effectively just ".undefined", "undefined", or whitespace.
+    // If, after all cleaning, the string is empty
     if (_str === "") {
       setError(`AI returned an empty or unusable response for ${errorContext} after cleaning. Please try rephrasing.`);
       return null;
     }
+    
+    // Final check: if for some reason it became "undefined" after manipulation
+    if (_str.toLowerCase() === "undefined") {
+      setError(`AI returned an unusable response for ${errorContext} (was 'undefined'). Please try rephrasing.`);
+      return null;
+    }
+
 
     return _str;
   };
@@ -77,7 +83,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
       
       const cleanedEnhancedPrompt = cleanPromptString(result.enhancedPrompt, "enhancement");
 
-      if (cleanedEnhancedPrompt !== null) {
+      if (cleanedEnhancedPrompt !== null && cleanedEnhancedPrompt.trim() !== "") {
         setEnhancedPrompt(cleanedEnhancedPrompt);
         toast({
           title: "Prompt Enhanced!",
@@ -85,7 +91,9 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           action: <SparklesIcon className="text-accent" />
         });
       } else if (!error) { 
-         setError("Failed to enhance prompt or received an invalid format from AI.");
+         // If cleanPromptString returned null/empty but didn't set an error itself, set a generic one.
+         const defaultErrorMsg = "Failed to enhance prompt or received an invalid format from AI.";
+         setError(defaultErrorMsg);
          toast({
             variant: "destructive",
             title: "Enhancement Failed",
@@ -115,14 +123,14 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     try {
       const input: ModifyResultInput = {
         originalPrompt: submittedOriginalPrompt,
-        enhancedPrompt,
+        enhancedPrompt, // Pass the currently displayed (and cleaned) enhanced prompt
         modificationRequest: modificationRequest.trim(),
       };
       const result: ModifyResultOutput = await modifyResult(input);
       
       const cleanedModifiedPrompt = cleanPromptString(result.modifiedPrompt, "modification");
 
-      if (cleanedModifiedPrompt !== null) {
+      if (cleanedModifiedPrompt !== null && cleanedModifiedPrompt.trim() !== "") {
         setEnhancedPrompt(cleanedModifiedPrompt);
         setIsModifyModalOpen(false);
         toast({
@@ -131,7 +139,8 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           action: <SparklesIcon className="text-accent" />
         });
       } else if (!error) {
-        setError("Failed to modify prompt or received an invalid format from AI.");
+        const defaultErrorMsg = "Failed to modify prompt or received an invalid format from AI.";
+        setError(defaultErrorMsg);
         toast({
             variant: "destructive",
             title: "Modification Failed",
@@ -243,4 +252,3 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
     </section>
   );
 }
-
