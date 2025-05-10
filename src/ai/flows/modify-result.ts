@@ -3,13 +3,13 @@
 
 /**
  * @fileOverview This flow allows users to request modifications to the enhanced prompt.
- *
- * - modifyResult - A function that handles the modification request process.
+ * It exports functions and types for prompt modification.
+ * - modifyResult: Takes an original prompt, an enhanced prompt, and a modification request, then returns the refined prompt.
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-import type { ModifyResultInput, ModifyResultOutput } from '@/ai/types'; // Import types
-import { ModifyResultOutputSchema } from '@/ai/types'; // Import schema for parsing
+import { ModifyResultInputSchema, ModifyResultOutputSchema, type ModifyResultInput, type ModifyResultOutput } from "@/ai/types"; // Import types
+
 
 const modifyResultSystemInstruction = `You are Prompthancer's Refinement Engine, an advanced prompt modification expert specializing in applying precise adjustments to already-enhanced prompts. Your purpose is to refine enhanced prompts based on specific user modification requests while preserving valuable improvements.
 
@@ -96,16 +96,25 @@ You are the final refining touch in the Prompthancer system, ensuring users can 
 `;
 
 export async function modifyResult(input: ModifyResultInput): Promise<ModifyResultOutput> {
+   // Validate input with Zod schema
+  const validatedInput = ModifyResultInputSchema.safeParse(input);
+  if (!validatedInput.success) {
+    const zodError = validatedInput.error;
+    console.error("Invalid input for modifyResult:", zodError.flatten());
+     return ModifyResultOutputSchema.parse({ 
+        modifiedPrompt: `Error: Invalid input. ${zodError.flatten().fieldErrors.modificationRequest?.join(', ') || 'General input error.'}`
+    });
+  }
+
   if (!process.env.GEMINI_API_KEY) {
-    // Consistent error handling: return a structured error if API key is missing.
     return ModifyResultOutputSchema.parse({ 
-        modifiedPrompt: `Error: Application configuration issue. API key not found. Original request: ${input.modificationRequest}`
+        modifiedPrompt: `Error: Application configuration issue. API key not found. Original request: ${validatedInput.data.modificationRequest}`
     });
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest",
+    model: "gemini-2.0-flash",
      systemInstruction: {
         role: "model",
         parts: [{ text: modifyResultSystemInstruction }],
@@ -118,15 +127,14 @@ export async function modifyResult(input: ModifyResultInput): Promise<ModifyResu
     ]
   });
   
-  // Construct the user prompt content more clearly, ensuring the AI understands the context
   const userPromptContent = `ORIGINAL PROMPT:
-${input.originalPrompt}
+${validatedInput.data.originalPrompt}
 
 CURRENT ENHANCED PROMPT:
-${input.enhancedPrompt}
+${validatedInput.data.enhancedPrompt}
 
 USER MODIFICATION REQUEST:
-${input.modificationRequest}
+${validatedInput.data.modificationRequest}
 
 Based on the above, please provide ONLY the refined prompt.`;
 
@@ -134,23 +142,36 @@ Based on the above, please provide ONLY the refined prompt.`;
   try {
     const result = await model.generateContent(userPromptContent);
     const response = result.response;
-    const text = response.text();
 
-    if (!text) {
+    if (!response || !response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0 || !response.candidates[0].content.parts[0].text) {
+      if (response?.promptFeedback?.blockReason) {
+        const blockReason = response.promptFeedback.blockReason;
+        return ModifyResultOutputSchema.parse({ 
+          modifiedPrompt: `Error: AI response blocked due to content policy (${blockReason}) for modification request: "${validatedInput.data.modificationRequest}". Please revise your modification request.`
+        });
+      }
        return ModifyResultOutputSchema.parse({ 
-        modifiedPrompt: `Error: AI returned an empty response for modification. Original request: ${input.modificationRequest}`
+        modifiedPrompt: `Error: AI returned an empty or malformed response for modification. Original request: ${validatedInput.data.modificationRequest}`
       });
     }
     
-    // The system prompt for modifyResult explicitly states the output is *only* the refined prompt.
-    // We trim to remove any potential leading/trailing newlines the AI might add despite instructions.
+    const text = response.candidates[0].content.parts[0].text;
+     if (!text || text.trim() === "") {
+       return ModifyResultOutputSchema.parse({ 
+        modifiedPrompt: `Error: AI returned an empty text response for modification. Original request: ${validatedInput.data.modificationRequest}`
+      });
+    }
+    
     return ModifyResultOutputSchema.parse({ modifiedPrompt: text.trim() });
 
   } catch (error) {
     console.error("Error calling Gemini API for modification:", error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
+    let errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
+    if (error && typeof error === 'object' && 'message' in error && 'stack' in error && error.constructor.name === 'GoogleGenerativeAIError') {
+        errorMessage = `Gemini API Error: ${error.message}`;
+    }
      return ModifyResultOutputSchema.parse({ 
-        modifiedPrompt: `Error: Could not modify prompt due to an API error. ${errorMessage}. Original request: ${input.modificationRequest}`
+        modifiedPrompt: `Error: Could not modify prompt due to an API error. ${errorMessage}. Original request: ${validatedInput.data.modificationRequest}`
     });
   }
 }

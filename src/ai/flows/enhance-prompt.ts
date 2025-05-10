@@ -3,13 +3,12 @@
 
 /**
  * @fileOverview Enhances user-provided prompts using the Gemini API to improve clarity, specificity, and context.
- *
- * - enhancePrompt - A function that enhances the prompt.
+ * This file exports functions and types for prompt enhancement.
+ * - enhancePrompt: Takes an original prompt and returns an enhanced version with analysis.
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-import type { EnhancePromptInput, EnhancePromptOutput } from '@/ai/types'; // Import types
-import { EnhancePromptOutputSchema } from '@/ai/types'; // Import schema for parsing
+import { EnhancePromptInputSchema, EnhancePromptOutputSchema, type EnhancePromptInput, type EnhancePromptOutput } from '@/ai/types'; // Import types
 
 const enhancePromptSystemInstruction = `You are Prompthancer, the world's most advanced prompt enhancement engine that transforms ordinary prompts into extraordinarily effective ones. Your sole purpose is to analyze user input, identify its category, and apply precise enhancement techniques to deliver superior results.
 
@@ -239,10 +238,15 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
   if (!output.enhancedPrompt && !output.promptAnalysis && !output.enhancementExplanation) {
     const trimmedResponse = responseText.trim();
     // Heuristic: if response is not empty, doesn't contain section headers, and is reasonably short.
-    if (trimmedResponse && !Object.values(sections).some(header => trimmedResponse.includes(header)) && trimmedResponse.length < 2 * (originalUserPrompt.length + 200)) { // Increased buffer for safety
+    if (trimmedResponse && !Object.values(sections).some(header => trimmedResponse.includes(header)) && trimmedResponse.length < 2 * (originalUserPrompt.length + 200)) { 
          output.enhancedPrompt = trimmedResponse;
          output.promptAnalysis = { primaryCategory: "Other", intentRecognition: "Unknown", enhancementOpportunities: "N/A (Minimal AI Response)", secondaryCategories: [] };
          output.enhancementExplanation = "AI response format was minimal; direct enhancement assumed.";
+    } else if (trimmedResponse && !Object.values(sections).some(header => trimmedResponse.includes(header))) {
+        // If it's a longer response but still no section headers, assume it's the enhanced prompt.
+        output.enhancedPrompt = trimmedResponse;
+        output.promptAnalysis = { primaryCategory: "General", secondaryCategories: [], intentRecognition: "Assumed direct enhancement", enhancementOpportunities: "No detailed analysis provided by AI." };
+        output.enhancementExplanation = "AI provided a direct response instead of a fully structured enhancement format.";
     }
   }
 
@@ -255,7 +259,7 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
     if (!output.enhancedPrompt) {
        // If still no enhanced prompt after general fallback, it's an issue.
        // Check if the entire responseText might be the enhanced prompt if it's short and lacks headers
-       if (responseText && !Object.values(sections).some(header => responseText.includes(header)) && responseText.length < 1000) { // Increased length for fallback
+       if (responseText && !Object.values(sections).some(header => responseText.includes(header)) && responseText.length < 1000) { 
            output.enhancedPrompt = responseText.trim();
            output.enhancementExplanation = output.enhancementExplanation || "AI provided a direct response instead of a fully structured enhancement.";
        } else {
@@ -271,7 +275,13 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
     console.error("Failed to parse LLM response into EnhancePromptOutputSchema:", e);
     console.error("Original LLM response text:", responseText);
     console.error("Parsed object before validation:", output);
+    
     // Fallback: if parsing failed, return a structured error in the EnhancePromptOutput format
+     // Attempt to salvage the enhanced prompt if possible, otherwise provide a clear error.
+    const salvagedEnhancedPrompt = output.enhancedPrompt || 
+        (responseText && !Object.values(sections).some(header => responseText.includes(header)) ? responseText.trim() : 
+        `Error: AI response could not be parsed. Original response (first 500 chars): ${responseText.substring(0, 500)}...`);
+
     return EnhancePromptOutputSchema.parse({
         originalPrompt: originalUserPrompt,
         promptAnalysis: {
@@ -280,19 +290,36 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
             intentRecognition: "Parsing Failed",
             enhancementOpportunities: `AI response did not match the expected format. Parser error: ${(e as Error).message}`
         },
-        enhancedPrompt: `Error: AI response could not be parsed. Original response: ${responseText.substring(0, 500)}...`, // Truncate long responses
-        enhancementExplanation: `Parsing failed. Details: ${(e as Error).message}`
+        enhancedPrompt: salvagedEnhancedPrompt,
+        enhancementExplanation: `Parsing failed. Details: ${(e as Error).message}. The enhanced prompt above might be the raw AI output if identifiable.`
     });
   }
 }
 
 
 export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhancePromptOutput> {
+  // Validate input with Zod schema
+  const validatedInput = EnhancePromptInputSchema.safeParse(input);
+  if (!validatedInput.success) {
+    const zodError = validatedInput.error;
+    console.error("Invalid input for enhancePrompt:", zodError.flatten());
+    return EnhancePromptOutputSchema.parse({
+        originalPrompt: input.originalPrompt || "Invalid input provided",
+        promptAnalysis: {
+            primaryCategory: "Input Error",
+            secondaryCategories: [],
+            intentRecognition: "Invalid Input",
+            enhancementOpportunities: `Input validation failed: ${zodError.flatten().fieldErrors.originalPrompt?.join(', ') || 'General input error.'}`
+        },
+        enhancedPrompt: "Error: Invalid input provided to the enhancement function.",
+        enhancementExplanation: `The input did not meet the required format. ${zodError.flatten().fieldErrors.originalPrompt?.join(', ') || ''}`
+    });
+  }
+
+
   if (!process.env.GEMINI_API_KEY) {
-    // This case should ideally be handled by a general API key check at app startup or a specific UI element
-    // For now, returning a structured error is consistent.
      return EnhancePromptOutputSchema.parse({
-        originalPrompt: input.originalPrompt,
+        originalPrompt: validatedInput.data.originalPrompt,
         promptAnalysis: {
             primaryCategory: "Configuration Error",
             secondaryCategories: [],
@@ -306,7 +333,7 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest", 
+    model: "gemini-2.0-flash", 
     systemInstruction: {
         role: "model", 
         parts: [{ text: enhancePromptSystemInstruction }],
@@ -320,43 +347,81 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
   });
 
   try {
-    // The system instruction already guides the AI. User prompt should be clean.
-    const userMessage = input.originalPrompt; // No extra "Please enhance..." as the system prompt handles the role.
+    const userMessage = validatedInput.data.originalPrompt; 
     
     const result = await model.generateContent(userMessage);
     const response = result.response;
-    const text = response.text();
-
-    if (!text) {
-      // This indicates an empty response from the API, which is an error condition.
+    
+    // Check for valid candidate and text
+    if (!response || !response.candidates || response.candidates.length === 0 || !response.candidates[0].content || !response.candidates[0].content.parts || response.candidates[0].content.parts.length === 0 || !response.candidates[0].content.parts[0].text) {
+      if (response?.promptFeedback?.blockReason) {
+        const blockReason = response.promptFeedback.blockReason;
+        const safetyRatings = response.promptFeedback.safetyRatings?.map(r => `${r.category}: ${r.probability}`).join(', ') || "No detailed safety ratings.";
+        return EnhancePromptOutputSchema.parse({
+            originalPrompt: validatedInput.data.originalPrompt,
+            promptAnalysis: {
+                primaryCategory: "API Error - Content Moderation",
+                secondaryCategories: [],
+                intentRecognition: "Blocked by Safety Filter",
+                enhancementOpportunities: `The AI response was blocked due to: ${blockReason}. Safety ratings: ${safetyRatings}`
+            },
+            enhancedPrompt: `Error: AI response blocked due to content policy (${blockReason}). Please revise your prompt.`,
+            enhancementExplanation: `The AI service blocked the response. Reason: ${blockReason}. Consider rephrasing or removing potentially sensitive content from your prompt. Details: ${safetyRatings}`
+        });
+      }
+      // Generic empty or malformed response
       return EnhancePromptOutputSchema.parse({
-        originalPrompt: input.originalPrompt,
+        originalPrompt: validatedInput.data.originalPrompt,
         promptAnalysis: {
             primaryCategory: "API Error",
             secondaryCategories: [],
-            intentRecognition: "Empty Response",
-            enhancementOpportunities: "The AI returned an empty response."
+            intentRecognition: "Malformed/Empty Response",
+            enhancementOpportunities: "The AI returned an empty or malformed response."
         },
-        enhancedPrompt: "Error: AI returned an empty response.",
-        enhancementExplanation: "The AI service did not provide any content for the prompt."
+        enhancedPrompt: "Error: AI returned an unusable response. Please try again or rephrase your prompt.",
+        enhancementExplanation: "The AI service did not provide valid content. This could be a temporary issue or the prompt might be too problematic."
       });
     }
     
-    return parseEnhancePromptResponse(text, input.originalPrompt);
+    const text = response.candidates[0].content.parts[0].text;
+
+    if (!text || text.trim() === "") {
+      // This case should be largely covered by the check above, but as a fallback.
+      return EnhancePromptOutputSchema.parse({
+        originalPrompt: validatedInput.data.originalPrompt,
+        promptAnalysis: {
+            primaryCategory: "API Error",
+            secondaryCategories: [],
+            intentRecognition: "Empty Response Text",
+            enhancementOpportunities: "The AI returned an empty text response."
+        },
+        enhancedPrompt: "Error: AI returned an empty text response. Please try again or rephrase your prompt.",
+        enhancementExplanation: "The AI service did not provide any text content for the prompt."
+      });
+    }
+    
+    return parseEnhancePromptResponse(text, validatedInput.data.originalPrompt);
 
   } catch (error) {
     console.error("Error calling Gemini API:", error);
     const errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
+    // Check if it's a GoogleGenerativeAIError for more specific feedback
+    let detailedApiError = errorMessage;
+    if (error && typeof error === 'object' && 'message' in error && 'stack' in error && error.constructor.name === 'GoogleGenerativeAIError') {
+        detailedApiError = `Gemini API Error: ${error.message}`;
+    }
+
+
     return EnhancePromptOutputSchema.parse({
-        originalPrompt: input.originalPrompt,
+        originalPrompt: validatedInput.data.originalPrompt,
         promptAnalysis: {
             primaryCategory: "API Error",
             secondaryCategories: [],
             intentRecognition: "API Call Failed",
-            enhancementOpportunities: `Failed to get response from AI: ${errorMessage}`
+            enhancementOpportunities: `Failed to get response from AI: ${detailedApiError}`
         },
-        enhancedPrompt: `Error: Could not enhance prompt due to an API error. ${errorMessage}`,
-        enhancementExplanation: `The AI service encountered an error: ${errorMessage}`
+        enhancedPrompt: `Error: Could not enhance prompt due to an API error. ${detailedApiError}`,
+        enhancementExplanation: `The AI service encountered an error: ${detailedApiError}`
     });
   }
 }
