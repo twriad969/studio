@@ -5,8 +5,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import PromptForm from './PromptForm';
 import ResultsDisplay from './ResultsDisplay';
 import ModifyPromptModal from './ModifyPromptModal';
-import { enhancePrompt, EnhancePromptInput, EnhancePromptOutput } from '@/ai/flows/enhance-prompt';
-import { modifyResult, ModifyResultInput, ModifyResultOutput } from '@/ai/flows/modify-result';
+import { enhancePrompt } from '@/ai/flows/enhance-prompt';
+import { modifyResult } from '@/ai/flows/modify-result';
+import type { EnhancePromptInput, EnhancePromptOutput, ModifyResultInput, ModifyResultOutput } from '@/ai/types'; // Updated import path
 import { useToast } from '@/hooks/use-toast';
 import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

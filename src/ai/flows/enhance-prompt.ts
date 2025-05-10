@@ -1,37 +1,15 @@
+
 'use server';
 
 /**
  * @fileOverview Enhances user-provided prompts using the Gemini API to improve clarity, specificity, and context.
  *
  * - enhancePrompt - A function that enhances the prompt.
- * - EnhancePromptInput - The input type for the enhancePrompt function.
- * - EnhancePromptOutput - The return type for the enhancePrompt function.
  */
 
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
-import { z } from 'genkit'; // Zod is still useful for schema definition and type inference
-
-const EnhancePromptInputSchema = z.object({
-  originalPrompt: z.string().describe('The original prompt provided by the user.'),
-});
-
-export type EnhancePromptInput = z.infer<typeof EnhancePromptInputSchema>;
-
-const PromptAnalysisSchema = z.object({
-  primaryCategory: z.string().describe('The main domain of the prompt.'),
-  secondaryCategories: z.array(z.string()).optional().describe('Other applicable domains, if any. If none, this can be omitted or an empty array.'),
-  intentRecognition: z.string().describe("The user's likely goal."),
-  enhancementOpportunities: z.string().describe('Concise list of improvements needed, potentially as a newline-separated string or bullet points.'),
-});
-
-export const EnhancePromptOutputSchema = z.object({
-  originalPrompt: z.string().describe("User's original prompt."),
-  promptAnalysis: PromptAnalysisSchema.describe('Analysis of the prompt, including category, intent, and opportunities.'),
-  enhancedPrompt: z.string().describe('The completely rewritten, enhanced prompt ready for immediate use. This section must contain only plain text with no formatting markers.'),
-  enhancementExplanation: z.string().describe('Brief explanation of key improvements made and why they will produce superior results.'),
-});
-
-export type EnhancePromptOutput = z.infer<typeof EnhancePromptOutputSchema>;
+import type { EnhancePromptInput, EnhancePromptOutput } from '@/ai/types'; // Import types
+import { EnhancePromptOutputSchema } from '@/ai/types'; // Import schema for parsing
 
 const enhancePromptSystemInstruction = `You are Prompthancer, the world's most advanced prompt enhancement engine that transforms ordinary prompts into extraordinarily effective ones. Your sole purpose is to analyze user input, identify its category, and apply precise enhancement techniques to deliver superior results.
 
@@ -183,6 +161,9 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
     if (enhancedPromptEndIndex === -1) {
       enhancedPromptEndIndex = responseText.indexOf(sections.promptAnalysis, enhancedPromptStartIndex);
     }
+     if (enhancedPromptEndIndex === -1) {
+        enhancedPromptEndIndex = responseText.indexOf(sections.originalPrompt, enhancedPromptStartIndex);
+    }
     if (enhancedPromptEndIndex === -1) {
         enhancedPromptEndIndex = responseText.length;
     }
@@ -212,6 +193,8 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
             analysisSectionEndIndex = responseText.length;
         }
     }
+
+
     const analysisText = responseText.substring(analysisSectionStartIndex, analysisSectionEndIndex).trim();
 
     const primaryCategoryMatch = analysisText.match(/Primary Category:\s*([^\n]*)/);
@@ -228,7 +211,7 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
           .filter(s => s);
       }
     } else {
-       analysis.secondaryCategories = []; // Default to empty if not found or empty
+       analysis.secondaryCategories = []; 
     }
 
 
@@ -237,54 +220,51 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
     
     const opportunitiesMatch = analysisText.match(/Enhancement Opportunities:\s*([\s\S]*)/);
     if (opportunitiesMatch && opportunitiesMatch[1]) {
-        // Assuming opportunities is the last part of analysis block or followed by a known major section marker
         let opportunitiesText = opportunitiesMatch[1].trim();
-        // If other sub-fields were after it, one would need to cap it. Given the example, it's last.
-        analysis.enhancementOpportunities = opportunitiesText;
+        // If opportunities text seems to run into the next section header, trim it.
+        const nextSectionHeaderIndex = Object.values(sections)
+            .filter(s => s !== sections.promptAnalysis) // Don't check against its own header
+            .map(header => opportunitiesText.indexOf(header))
+            .filter(index => index !== -1)
+            .sort((a, b) => a - b)[0];
+        if (nextSectionHeaderIndex !== undefined) {
+            opportunitiesText = opportunitiesText.substring(0, nextSectionHeaderIndex);
+        }
+        analysis.enhancementOpportunities = opportunitiesText.trim();
     }
     output.promptAnalysis = analysis as EnhancePromptOutput["promptAnalysis"];
   }
   
-  // Fallback if specific parsing failed for enhancedPrompt but it might be the only thing returned
+  // Fallback if the AI doesn't follow the structured output format completely
   if (!output.enhancedPrompt && !output.promptAnalysis && !output.enhancementExplanation) {
-    // This condition implies the AI might have just returned the enhanced prompt directly
-    // without any of the specified section headers.
-    // This is a deviation from the system prompt but could happen for very simple inputs or unexpected AI behavior.
     const trimmedResponse = responseText.trim();
-    if (trimmedResponse.length > 0 && trimmedResponse.length < 2 * (input.originalPrompt.length + 50)) { // Heuristic: not too long relative to input
+    // Heuristic: if response is not empty, doesn't contain section headers, and is reasonably short.
+    if (trimmedResponse && !Object.values(sections).some(header => trimmedResponse.includes(header)) && trimmedResponse.length < 2 * (originalUserPrompt.length + 200)) { // Increased buffer for safety
          output.enhancedPrompt = trimmedResponse;
-         // Create minimal other fields if possible
-         output.promptAnalysis = output.promptAnalysis || { primaryCategory: "Other", intentRecognition: "Unknown", enhancementOpportunities: "N/A", secondaryCategories: [] };
-         output.enhancementExplanation = output.enhancementExplanation || "AI response format was minimal; direct enhancement assumed.";
+         output.promptAnalysis = { primaryCategory: "Other", intentRecognition: "Unknown", enhancementOpportunities: "N/A (Minimal AI Response)", secondaryCategories: [] };
+         output.enhancementExplanation = "AI response format was minimal; direct enhancement assumed.";
     }
   }
 
 
   try {
-    // Ensure all required fields for Zod validation are present, even if with default/fallback values
+    // Ensure all required fields for Zod validation are present
     if (!output.promptAnalysis) {
         output.promptAnalysis = { primaryCategory: "General", secondaryCategories: [], intentRecognition: "Not specified", enhancementOpportunities: "Not specified" };
     }
     if (!output.enhancedPrompt) {
-        // This is a critical field. If it's still missing, this is a bigger issue.
-        // The system prompt explicitly demands it. If user inputs 'hello', AI should still try to output format.
-        // If input is 'hello who are you' this could be a tricky case.
-        // The AI should output 'Enhanced Prompt: Hello, I am Prompthancer...'
-        // If it just says 'Hello, I am Prompthancer' without the 'Enhanced Prompt:' label, the parser above won't catch it.
-        // Let's check if the AI output is short and looks like a direct answer rather than a structured one.
-        if (responseText.length < 200 && !responseText.includes("PROMPT ANALYSIS:") && !responseText.includes("ENHANCEMENT EXPLANATION:")) {
-            // Potentially, the AI just responded directly.
-            // This is against instructions but we might put its response into enhancedPrompt.
-             output.enhancedPrompt = responseText.trim();
-             output.enhancementExplanation = output.enhancementExplanation || "AI provided a direct response instead of a fully structured enhancement.";
-        } else {
-            output.enhancedPrompt = "Error: AI failed to generate an enhanced prompt in the expected format.";
-        }
+       // If still no enhanced prompt after general fallback, it's an issue.
+       // Check if the entire responseText might be the enhanced prompt if it's short and lacks headers
+       if (responseText && !Object.values(sections).some(header => responseText.includes(header)) && responseText.length < 1000) { // Increased length for fallback
+           output.enhancedPrompt = responseText.trim();
+           output.enhancementExplanation = output.enhancementExplanation || "AI provided a direct response instead of a fully structured enhancement.";
+       } else {
+           output.enhancedPrompt = "Error: AI failed to generate an enhanced prompt in the expected format.";
+       }
     }
     if (!output.enhancementExplanation) {
-        output.enhancementExplanation = "No explanation provided.";
+        output.enhancementExplanation = "No explanation provided or explanation parsing failed.";
     }
-
 
     return EnhancePromptOutputSchema.parse(output);
   } catch (e) {
@@ -300,7 +280,7 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
             intentRecognition: "Parsing Failed",
             enhancementOpportunities: `AI response did not match the expected format. Parser error: ${(e as Error).message}`
         },
-        enhancedPrompt: `Error: AI response could not be parsed. Original response: ${responseText}`,
+        enhancedPrompt: `Error: AI response could not be parsed. Original response: ${responseText.substring(0, 500)}...`, // Truncate long responses
         enhancementExplanation: `Parsing failed. Details: ${(e as Error).message}`
     });
   }
@@ -309,17 +289,29 @@ function parseEnhancePromptResponse(responseText: string, originalUserPrompt: st
 
 export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhancePromptOutput> {
   if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY environment variable is not set.");
+    // This case should ideally be handled by a general API key check at app startup or a specific UI element
+    // For now, returning a structured error is consistent.
+     return EnhancePromptOutputSchema.parse({
+        originalPrompt: input.originalPrompt,
+        promptAnalysis: {
+            primaryCategory: "Configuration Error",
+            secondaryCategories: [],
+            intentRecognition: "API Key Missing",
+            enhancementOpportunities: "GEMINI_API_KEY is not set in the environment."
+        },
+        enhancedPrompt: "Error: Application configuration issue. API key not found.",
+        enhancementExplanation: "The GEMINI_API_KEY environment variable must be set for the application to function."
+    });
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest", // Using a capable and fast model
+    model: "gemini-1.5-flash-latest", 
     systemInstruction: {
-        role: "model", // 'model' role for system instructions often works well
+        role: "model", 
         parts: [{ text: enhancePromptSystemInstruction }],
     },
-    safetySettings: [ // Basic safety settings
+    safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
         { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
         { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
@@ -328,32 +320,43 @@ export async function enhancePrompt(input: EnhancePromptInput): Promise<EnhanceP
   });
 
   try {
-    // Construct the user prompt part that the system instruction will process
-    const userMessage = `Please enhance the following prompt:\n\n${input.originalPrompt}`;
+    // The system instruction already guides the AI. User prompt should be clean.
+    const userMessage = input.originalPrompt; // No extra "Please enhance..." as the system prompt handles the role.
     
     const result = await model.generateContent(userMessage);
     const response = result.response;
     const text = response.text();
 
     if (!text) {
-      throw new Error("The AI returned an empty response.");
+      // This indicates an empty response from the API, which is an error condition.
+      return EnhancePromptOutputSchema.parse({
+        originalPrompt: input.originalPrompt,
+        promptAnalysis: {
+            primaryCategory: "API Error",
+            secondaryCategories: [],
+            intentRecognition: "Empty Response",
+            enhancementOpportunities: "The AI returned an empty response."
+        },
+        enhancedPrompt: "Error: AI returned an empty response.",
+        enhancementExplanation: "The AI service did not provide any content for the prompt."
+      });
     }
     
     return parseEnhancePromptResponse(text, input.originalPrompt);
 
   } catch (error) {
     console.error("Error calling Gemini API:", error);
-    // Return a structured error in the EnhancePromptOutput format
+    const errorMessage = error instanceof Error ? error.message : "An unknown API error occurred.";
     return EnhancePromptOutputSchema.parse({
         originalPrompt: input.originalPrompt,
         promptAnalysis: {
             primaryCategory: "API Error",
             secondaryCategories: [],
             intentRecognition: "API Call Failed",
-            enhancementOpportunities: `Failed to get response from AI. ${(error as Error).message}`
+            enhancementOpportunities: `Failed to get response from AI: ${errorMessage}`
         },
-        enhancedPrompt: `Error: Could not enhance prompt due to an API error. ${(error as Error).message}`,
-        enhancementExplanation: `The AI service encountered an error: ${(error as Error).message}`
+        enhancedPrompt: `Error: Could not enhance prompt due to an API error. ${errorMessage}`,
+        enhancementExplanation: `The AI service encountered an error: ${errorMessage}`
     });
   }
 }
