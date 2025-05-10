@@ -10,7 +10,7 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-import { Spotlight } from "@/components/ui/spotlight"; // Added Spotlight import
+import { Spotlight } from "@/components/ui/spotlight";
 
 export default function HomePage() {
   const { theme, setTheme } = useTheme();
@@ -24,8 +24,9 @@ export default function HomePage() {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
+  // Prevent rendering client-only components until mounted
   if (!mounted) {
-    return null;
+    return null; 
   }
 
   return (
@@ -34,15 +35,31 @@ export default function HomePage() {
         "flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300 relative overflow-hidden"
       )}
     >
-      {/* Conditionally render Spotlight based on theme, positioned to cover upper area */}
-      {mounted && theme === "dark" && (
+      {/* Light Mode Grid Background */}
+      {theme === 'light' && (
+        <>
+          <div
+            className={cn(
+              "absolute inset-0 z-0",
+              "[background-size:40px_40px]",
+              "[background-image:linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)]"
+            )}
+          />
+          <div className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center bg-background [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)]" />
+        </>
+      )}
+
+      {/* Dark Mode Spotlight, positioned to cover upper area */}
+      {theme === "dark" && (
         <Spotlight
-          className="absolute -top-40 -left-20 md:-left-1/4 md:-top-1/3 opacity-70" // Adjusted positioning for upper area
+          className="absolute -top-40 left-0 md:-top-20 md:left-60 z-[2]"
           fill="white"
         />
       )}
+      
+      {/* Always-on Background Beams */}
+      <BackgroundBeams className="absolute top-0 left-0 w-full h-full z-[1]" />
 
-      <BackgroundBeams className="absolute top-0 left-0 w-full h-full z-0" />
 
       <div className="relative z-10 flex flex-col min-h-screen">
         <AppHeader>
@@ -55,7 +72,7 @@ export default function HomePage() {
             <CoverDemo />
           </section>
 
-          <PromptEnhancementSection /> {/* Removed currentTheme prop */}
+          <PromptEnhancementSection />
           <EducationalContent />
         </main>
         <AppFooter />
