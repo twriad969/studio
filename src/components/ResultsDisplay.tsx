@@ -11,14 +11,13 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ResultsDisplayProps {
-  originalPrompt: string | null; // Still needed for ModifyPromptModal
   enhancedPrompt: string | null;
   isLoading: boolean;
   onModifyClick: () => void;
 }
 
 const ResultsDisplay = React.forwardRef<HTMLDivElement, ResultsDisplayProps>(
-  ({ originalPrompt, enhancedPrompt, isLoading, onModifyClick }, ref) => {
+  ({ enhancedPrompt, isLoading, onModifyClick }, ref) => {
     const { toast } = useToast();
     const [isCopied, setIsCopied] = useState(false);
     const [animatedEnhancedPrompt, setAnimatedEnhancedPrompt] = useState("");
@@ -36,7 +35,7 @@ const ResultsDisplay = React.forwardRef<HTMLDivElement, ResultsDisplayProps>(
           }
         }, 10); 
         return () => clearInterval(intervalId);
-      } else if (isLoading) {
+      } else if (isLoading || !enhancedPrompt) { // Reset if loading or no prompt
           setAnimatedEnhancedPrompt(""); 
       }
     }, [enhancedPrompt, isLoading]);
@@ -53,8 +52,9 @@ const ResultsDisplay = React.forwardRef<HTMLDivElement, ResultsDisplayProps>(
         setTimeout(() => setIsCopied(false), 2000);
       }
     };
-
-    if (!originalPrompt && !isLoading && !enhancedPrompt) { 
+    
+    // Only render if loading or if there's an enhanced prompt to show
+    if (!isLoading && !enhancedPrompt) { 
       return null;
     }
     
@@ -62,12 +62,12 @@ const ResultsDisplay = React.forwardRef<HTMLDivElement, ResultsDisplayProps>(
 
     return (
       <motion.div
-        ref={ref} // Assign forwarded ref here
+        ref={ref} 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.5 }}
-        className="mt-10" // This is the element that will be scrolled to
+        className="mt-10"
       >
         <Card className={cn("w-full overflow-hidden", cardBaseClass)}>
           <CardHeader className="pb-4">
@@ -81,10 +81,10 @@ const ResultsDisplay = React.forwardRef<HTMLDivElement, ResultsDisplayProps>(
           <CardContent className="space-y-6 p-6 md:p-8">
             <div className={cn(
               "text-sm text-foreground whitespace-pre-wrap break-words min-h-[150px] max-h-[400px] overflow-y-auto p-4 rounded-lg custom-scrollbar border shadow-inner",
-              "bg-background/70 dark:bg-background/50 border-primary/40 focus-within:border-primary" // Enhanced styling
+              "bg-background/70 dark:bg-background/50 border-primary/40 focus-within:border-primary"
             )}>
-              {isLoading && !enhancedPrompt ? (
-                <div className="space-y-3 py-4"> {/* Adjusted padding and spacing for skeletons */}
+              {isLoading && !animatedEnhancedPrompt ? ( // Show skeletons only if loading AND no animated prompt yet
+                <div className="space-y-3 py-4">
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-5/6" />
                   <Skeleton className="h-4 w-full" />
@@ -92,7 +92,7 @@ const ResultsDisplay = React.forwardRef<HTMLDivElement, ResultsDisplayProps>(
                   <Skeleton className="h-4 w-3/4" />
                 </div>
               ) : (
-                animatedEnhancedPrompt || (isLoading ? "" : <span className="italic text-muted-foreground">No enhanced prompt generated.</span>)
+                animatedEnhancedPrompt || (!isLoading && !enhancedPrompt ? <span className="italic text-muted-foreground">No enhanced prompt generated.</span> : "")
               )}
             </div>
 

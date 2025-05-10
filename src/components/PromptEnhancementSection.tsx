@@ -19,6 +19,8 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [submittedOriginalPrompt, setSubmittedOriginalPrompt] = useState<string | null>(null);
   const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
+  // Optional: Store the full structured result if other parts need to be displayed
+  // const [fullEnhancementResult, setFullEnhancementResult] = useState<EnhancePromptOutput | null>(null);
   const [isLoadingEnhance, setIsLoadingEnhance] = useState(false);
   const [isLoadingModify, setIsLoadingModify] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,13 +34,21 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
     setIsLoadingEnhance(true);
     setError(null);
-    setEnhancedPrompt(null); // Clear previous enhanced prompt
+    setEnhancedPrompt(null); 
+    // setFullEnhancementResult(null);
     setSubmittedOriginalPrompt(originalPrompt);
 
     try {
       const input: EnhancePromptInput = { originalPrompt: originalPrompt.trim() };
       const result: EnhancePromptOutput = await enhancePrompt(input);
-      setEnhancedPrompt(result.enhancedPrompt);
+      
+      // setFullEnhancementResult(result);
+      if (result.enhancedPrompt) {
+        setEnhancedPrompt(result.enhancedPrompt);
+      } else {
+        throw new Error("Enhanced prompt was not returned in the expected format.");
+      }
+      
       toast({
         title: "Prompt Enhanced!",
         description: "Your enhanced prompt is ready.",
@@ -66,12 +76,14 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
 
     try {
       const input: ModifyResultInput = {
-        originalPrompt: submittedOriginalPrompt, // Use the submitted original prompt
+        originalPrompt: submittedOriginalPrompt,
         enhancedPrompt,
         modificationRequest: modificationRequest.trim(),
       };
       const result: ModifyResultOutput = await modifyResult(input);
       setEnhancedPrompt(result.modifiedPrompt);
+      // If storing full result, update it too or parts of it if modification changes explanation etc.
+      // For now, only the prompt string is updated.
       setIsModifyModalOpen(false);
       toast({
         title: "Prompt Modified!",
@@ -106,9 +118,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
   }, [originalPrompt]);
 
   useEffect(() => {
-    if ((enhancedPrompt || error || isLoadingEnhance) && resultsSectionRef.current && !isModifyModalOpen) { // Scroll when loading starts too
-      // Only scroll if not just opened the modify modal which can cause a re-render.
-      // And ensure we have something to scroll to or an action is in progress.
+    if ((enhancedPrompt || error || isLoadingEnhance) && resultsSectionRef.current && !isModifyModalOpen) {
       if (isLoadingEnhance || enhancedPrompt || error) {
         resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -119,7 +129,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
   return (
     <section 
       id="prompt-enhancement-section" 
-      className="w-full max-w-3xl mx-auto space-y-10 py-12 md:py-16 relative mt-12 sm:mt-16" // Added margin-top for spacing
+      className="w-full max-w-3xl mx-auto space-y-10 py-12 md:py-16 relative mt-12 sm:mt-16"
     >
       <div className="relative z-10 text-center space-y-3 mb-10">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
@@ -177,7 +187,7 @@ export default function PromptEnhancementSection({}: PromptEnhancementSectionPro
           onClose={() => setIsModifyModalOpen(false)}
           onSubmit={handleModifySubmit}
           isLoading={isLoadingModify}
-          originalPrompt={submittedOriginalPrompt} // Pass submitted original prompt
+          originalPrompt={submittedOriginalPrompt} 
           currentEnhancedPrompt={enhancedPrompt}
         />
       )}
