@@ -10,7 +10,7 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-
+import { Spotlight } from "@/components/ui/spotlight"; // Added Spotlight import
 
 export default function HomePage() {
   const { theme, setTheme } = useTheme();
@@ -25,21 +25,25 @@ export default function HomePage() {
   };
 
   if (!mounted) {
-    return null; 
+    return null;
   }
 
   return (
-    <div 
+    <div
       className={cn(
         "flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300 relative overflow-hidden"
       )}
     >
-      {/* BackgroundBeams will only render its effect if the theme is dark due to its internal logic, but it's safe to include it always. 
-          The component itself doesn't have direct dark/light mode styling in its own definition, but the SVG colors are fixed.
-          For a true black and white theme, these SVG colors would need to be changed to shades of grey/white.
-      */}
+      {/* Conditionally render Spotlight based on theme, positioned to cover upper area */}
+      {mounted && theme === "dark" && (
+        <Spotlight
+          className="absolute -top-40 -left-20 md:-left-1/4 md:-top-1/3 opacity-70" // Adjusted positioning for upper area
+          fill="white"
+        />
+      )}
+
       <BackgroundBeams className="absolute top-0 left-0 w-full h-full z-0" />
-      
+
       <div className="relative z-10 flex flex-col min-h-screen">
         <AppHeader>
           <Button onClick={toggleDarkMode} variant="ghost" size="icon" aria-label="Toggle theme">
@@ -51,7 +55,7 @@ export default function HomePage() {
             <CoverDemo />
           </section>
 
-          <PromptEnhancementSection currentTheme={theme} />
+          <PromptEnhancementSection /> {/* Removed currentTheme prop */}
           <EducationalContent />
         </main>
         <AppFooter />

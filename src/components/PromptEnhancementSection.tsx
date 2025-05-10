@@ -1,23 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import PromptForm from './PromptForm';
 import ResultsDisplay from './ResultsDisplay';
 import ModifyPromptModal from './ModifyPromptModal';
 import { enhancePrompt, EnhancePromptInput, EnhancePromptOutput } from '@/ai/flows/enhance-prompt';
 import { modifyResult, ModifyResultInput, ModifyResultOutput } from '@/ai/flows/modify-result';
 import { useToast } from '@/hooks/use-toast';
-import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react'; 
+import { AlertCircle, Sparkles as SparklesIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AnimatePresence, motion } from 'framer-motion';
-import { Spotlight } from '@/components/ui/spotlight';
+// Spotlight import removed as it's no longer used here.
 import { cn } from '@/lib/utils';
 
-interface PromptEnhancementSectionProps {
-  currentTheme?: string;
-}
+// currentTheme prop removed from interface
+interface PromptEnhancementSectionProps {}
 
-export default function PromptEnhancementSection({ currentTheme }: PromptEnhancementSectionProps) {
+export default function PromptEnhancementSection({}: PromptEnhancementSectionProps) { // currentTheme prop removed
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [submittedOriginalPrompt, setSubmittedOriginalPrompt] = useState<string | null>(null);
   const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
@@ -26,7 +25,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
   const [error, setError] = useState<string | null>(null);
   const [isModifyModalOpen, setIsModifyModalOpen] = useState(false);
   const { toast } = useToast();
-  const resultsSectionRef = useRef<HTMLDivElement>(null); // Ref for scrolling
+  const resultsSectionRef = useRef<HTMLDivElement>(null);
 
   const handleEnhanceSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -34,7 +33,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
 
     setIsLoadingEnhance(true);
     setError(null);
-    setEnhancedPrompt(null); 
+    setEnhancedPrompt(null);
     setSubmittedOriginalPrompt(originalPrompt);
 
     try {
@@ -44,7 +43,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
       toast({
         title: "Prompt Enhanced!",
         description: "Your enhanced prompt is ready.",
-        action: <SparklesIcon className="text-accent" /> 
+        action: <SparklesIcon className="text-accent" />
       });
     } catch (err) {
       console.error("Error enhancing prompt:", err);
@@ -93,21 +92,20 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
       setIsLoadingModify(false);
     }
   };
-  
+
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 7000); // Increased duration for error visibility
+      const timer = setTimeout(() => setError(null), 7000);
       return () => clearTimeout(timer);
     }
   }, [error]);
 
   useEffect(() => {
-    if (originalPrompt) { 
+    if (originalPrompt) {
         setError(null);
     }
   }, [originalPrompt]);
 
-  // Scroll to results or error when they appear
   useEffect(() => {
     if ((enhancedPrompt || error) && resultsSectionRef.current && !isLoadingEnhance) {
       resultsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -117,12 +115,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
 
   return (
     <section className="w-full max-w-3xl mx-auto space-y-10 py-12 md:py-16 relative">
-      {currentTheme === 'dark' && (
-        <Spotlight
-          className="-top-40 left-0 md:-top-20 md:left-30"
-          fill="white" 
-        />
-      )}
+      {/* Spotlight component removed from here */}
       <div className="relative z-10 text-center space-y-3 mb-10">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
           Enhance Your Prompt
@@ -131,7 +124,7 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
           Enter your basic AI prompt below to get an enhanced, more effective version.
         </p>
       </div>
-      
+
       <div className="relative z-10">
         <PromptForm
           prompt={originalPrompt}
@@ -158,13 +151,12 @@ export default function PromptEnhancementSection({ currentTheme }: PromptEnhance
         )}
       </AnimatePresence>
 
-      {/* Container for ResultsDisplay that will be scrolled to */}
-      <div ref={resultsSectionRef} className="scroll-mt-20 md:scroll-mt-24"> {/* scroll-mt to offset sticky header */}
+      <div ref={resultsSectionRef} className="scroll-mt-20 md:scroll-mt-24">
         <AnimatePresence>
-          {(isLoadingEnhance || (enhancedPrompt && submittedOriginalPrompt) || (!isLoadingEnhance && !enhancedPrompt && submittedOriginalPrompt)) && ( // Show even if enhancedPrompt is null after loading (e.g. API error but not 'error' state)
+          {(isLoadingEnhance || (enhancedPrompt && submittedOriginalPrompt) || (!isLoadingEnhance && !enhancedPrompt && submittedOriginalPrompt)) && (
             <div className="relative z-10">
               <ResultsDisplay
-                originalPrompt={submittedOriginalPrompt}
+                originalPrompt={submittedOriginalPrompt} // Kept for ModifyPromptModal
                 enhancedPrompt={enhancedPrompt}
                 isLoading={isLoadingEnhance}
                 onModifyClick={() => setIsModifyModalOpen(true)}
